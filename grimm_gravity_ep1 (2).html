@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gravity Tale — 第一話「赤い頭巾」</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Zen+Old+Mincho:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --parchment:#e8dcc0; --parchment-dark:#d9c9a3; --ink:#2b2e4a; --ink-soft:#4a4e6d;
+    --gold:#b08d57; --moss:#57644a; --rose:#8b5e63; --spine:#3a3226;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; min-height:100%;
+    background: radial-gradient(ellipse at center, #3a3226 0%, #201b14 100%);
+    display:flex; align-items:flex-start; justify-content:center;
+    font-family:'Zen Old Mincho', serif; overflow-y:auto; overflow-x:hidden; color:#e8dcc0;
+  }
+  .stage{ display:flex; flex-direction:column; align-items:center; gap:12px; width:100%; max-width:940px; padding:16px 8px 24px 8px; }
+  h1{ font-family:'Cormorant Garamond',serif; font-weight:700; letter-spacing:0.14em; color:#e8dcc0; font-size:24px; margin:0; text-align:center; }
+  .sub{ color:#b7ab8a; font-size:12px; letter-spacing:0.05em; margin-top:-6px; text-align:center; }
+  .book-frame{
+    position:relative; border-radius:6px; padding:14px;
+    background:linear-gradient(180deg,#4a3f2c,#2b2418);
+    box-shadow: 0 30px 60px rgba(0,0,0,0.55), 0 2px 0 rgba(255,255,255,0.04) inset;
+    width:100%; max-width:912px;
+  }
+  .hud{ display:flex; justify-content:space-between; width:100%; padding:6px 4px 0 4px; font-size:12px; color:#cbb98f; letter-spacing:0.05em; }
+  #hudStage{ color:#e8dcc0; font-weight:700; letter-spacing:0.06em; }
+  .canvas-wrap{ position:relative; width:100%; }
+  canvas#game{ display:block; border-radius:3px; box-shadow:0 0 0 1px rgba(0,0,0,0.4); width:100%; height:auto; aspect-ratio:900/480; }
+
+  .dialogue{
+    position:absolute; left:0; right:0; bottom:0; padding:14px 16px 16px 16px;
+    background:linear-gradient(180deg, rgba(20,17,12,0) 0%, rgba(20,17,12,0.82) 30%, rgba(20,17,12,0.94) 100%);
+    display:none; flex-direction:column; gap:8px; border-radius:0 0 3px 3px;
+  }
+  .dialogue.show{ display:flex; }
+  .speaker{ font-family:'Cormorant Garamond',serif; font-size:15px; letter-spacing:0.1em; color:#d9b877; font-weight:700; }
+  .speaker.mari{ color:#a9b0d6; } .speaker.wolf{ color:#c9503f; } .speaker.hood{ color:#d98a90; }
+  .speaker.granny{ color:#c8b78f; } .speaker.narr{ color:#8a8266; font-style:italic; }
+  .dline{ font-size:16px; line-height:1.7; color:#efe6cf; min-height:1.7em; letter-spacing:0.02em; }
+  .dhint{ font-size:11px; color:#8a8266; text-align:right; letter-spacing:0.08em; }
+  .choices{ display:flex; flex-direction:column; gap:8px; margin-top:4px; }
+  .choice{
+    background:rgba(176,141,87,0.12); border:1px solid rgba(176,141,87,0.5); border-radius:8px;
+    padding:11px 14px; font-size:15px; color:#efe6cf; cursor:pointer; text-align:left;
+    font-family:'Zen Old Mincho',serif; transition:background .15s;
+  }
+  .choice:hover,.choice:active{ background:rgba(176,141,87,0.28); }
+
+  .qte{ position:absolute; inset:0; display:none; align-items:center; justify-content:center; flex-direction:column; gap:10px; background:rgba(20,17,12,0.35); }
+  .qte.show{ display:flex; }
+  .qte .big{ font-size:22px; color:#e8dcc0; letter-spacing:0.1em; text-shadow:0 2px 8px #000; }
+  .qte .flipnow{ background:rgba(201,80,63,0.25); border:2px solid #c9503f; color:#fff; padding:14px 26px; border-radius:30px; font-size:18px; letter-spacing:0.08em; animation:pulse .5s infinite alternate; }
+  @keyframes pulse{ from{transform:scale(1);} to{transform:scale(1.08);} }
+
+  .controls{ display:flex; gap:16px; margin-top:6px; color:#a99a76; font-size:12px; letter-spacing:0.03em; flex-wrap:wrap; justify-content:center; }
+  .controls b{ color:#e8dcc0; }
+  .touch-ui{ display:flex; justify-content:space-between; width:100%; margin-top:8px; flex-wrap:wrap; gap:10px; }
+  .touch-group{ display:flex; gap:8px; }
+  .btn{ width:52px; height:52px; border-radius:50%; border:1px solid rgba(232,220,192,0.35); background:rgba(232,220,192,0.08); color:#e8dcc0; font-size:20px; display:flex; align-items:center; justify-content:center; user-select:none; -webkit-user-select:none; touch-action:none; }
+  .btn:active{ background:rgba(232,220,192,0.25); }
+  .btn.flip{ width:auto; height:52px; padding:0 16px; border-radius:26px; background:rgba(176,141,87,0.18); border-color:rgba(176,141,87,0.6); font-size:12px; line-height:1.15; text-align:center; letter-spacing:0.04em; }
+
+  .bookbtn{ margin-top:4px; font-size:12px; color:#cbb98f; letter-spacing:0.06em; background:none; border:1px solid rgba(203,185,143,0.4); border-radius:16px; padding:6px 14px; cursor:pointer; font-family:'Zen Old Mincho',serif; }
+  .modal{ position:fixed; inset:0; background:rgba(10,8,5,0.86); display:none; align-items:center; justify-content:center; z-index:50; padding:20px; }
+  .modal.show{ display:flex; }
+  .book-inner{ background:linear-gradient(180deg,#efe4c8,#e2d3ab); color:#2b2e4a; max-width:560px; width:100%; border-radius:6px; padding:26px 28px; box-shadow:0 20px 60px rgba(0,0,0,0.6); font-size:15px; line-height:1.8; max-height:80vh; overflow:auto; }
+  .book-inner h2{ font-family:'Cormorant Garamond',serif; letter-spacing:0.12em; margin:0 0 14px; font-size:22px; }
+  .page-entry{ border-bottom:1px dashed rgba(58,50,38,0.35); padding:10px 0; }
+  .page-entry .title{ font-weight:700; color:#3a2f2a; }
+  .page-entry .body{ color:#4a4e6d; white-space:pre-line; }
+  .page-entry.empty .body{ color:#a89a6f; font-style:italic; }
+  .wormhole{ letter-spacing:2px; color:#b0a074; }
+  .modal .close{ margin-top:16px; }
+  .modal .close button{ background:#3a2f2a; color:#e8dcc0; border:none; border-radius:6px; padding:9px 18px; cursor:pointer; font-family:'Zen Old Mincho',serif; font-size:14px; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div>
+    <h1>GRAVITY TALE</h1>
+    <div class="sub">第一話「赤い頭巾」 ── 本を裏返すと、世界の重力が反転する</div>
+  </div>
+
+  <div class="book-frame">
+    <div class="hud">
+      <span id="hudLeft">← 左ページ</span>
+      <span id="hudStage">序 ── 森</span>
+      <span id="hudRight">右ページ →</span>
+    </div>
+
+    <div class="canvas-wrap">
+      <canvas id="game" width="900" height="480"></canvas>
+      <div class="qte" id="qte">
+        <div class="big" id="qteBig">！</div>
+        <div class="flipnow" id="qteBtn">今だ！ 本を裏返せ</div>
+      </div>
+      <div class="dialogue" id="dlg">
+        <div class="speaker" id="dlgSpeaker">　</div>
+        <div class="dline" id="dlgLine">　</div>
+        <div class="choices" id="dlgChoices"></div>
+        <div class="dhint" id="dlgHint">▶ タップ／クリックで進む</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <span><b>← →</b> 移動</span>
+      <span><b>↑ / W</b> ジャンプ</span>
+      <span><b>F / Space</b> 重力反転</span>
+      <span>光る<b>栞</b>に触れて進む</span>
+    </div>
+
+    <div class="touch-ui">
+      <div class="touch-group">
+        <div class="btn" id="btnLeft">◀</div>
+        <div class="btn" id="btnRight">▶</div>
+      </div>
+      <div class="btn flip" id="btnFlip">本を<br>裏返す</div>
+      <div class="touch-group">
+        <div class="btn" id="btnJump">▲</div>
+      </div>
+    </div>
+
+    <div style="text-align:center;">
+      <button class="bookbtn" id="openBook">📖 本を開く（ページを読み返す）</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="bookModal">
+  <div class="book-inner">
+    <h2>『Gravity Tale』</h2>
+    <div id="pageList"></div>
+    <div class="close"><button id="closeBook">閉じる</button></div>
+  </div>
+</div>
+
+<script>
+const canvas=document.getElementById('game'); const ctx=canvas.getContext('2d');
+const W=canvas.width,H=canvas.height; const SPINE=W/2;
+
+/* paper */
+const paper=document.createElement('canvas'); paper.width=W; paper.height=H;
+const pctx=paper.getContext('2d');
+(function(){
+  const grad=pctx.createLinearGradient(0,0,0,H); grad.addColorStop(0,'#efe4c8'); grad.addColorStop(1,'#e2d3ab');
+  pctx.fillStyle=grad; pctx.fillRect(0,0,W,H);
+  for(let i=0;i<2200;i++){ const x=Math.random()*W,y=Math.random()*H,a=Math.random()*0.05;
+    pctx.fillStyle=Math.random()>0.5?`rgba(120,100,60,${a})`:`rgba(255,250,230,${a})`; pctx.fillRect(x,y,1.4,1.4); }
+  const vg=pctx.createRadialGradient(W/2,H/2,H*0.25,W/2,H/2,H*0.9);
+  vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(58,50,38,0.25)');
+  pctx.fillStyle=vg; pctx.fillRect(0,0,W,H);
+})();
+
+const GRAVITY=2200,ACCEL=3400,FRICTION=3000,MAX_SPEED=300,JUMP_SPEED=720;
+const ENEMY_SPEED=90, EDGE=16;
+let gravity={left:1,right:1};
+
+const edges=[
+  {page:'left',x:0,y:0,w:SPINE,h:EDGE,kind:'ceilingEdge'},
+  {page:'left',x:0,y:H-EDGE,w:SPINE,h:EDGE,kind:'floorEdge'},
+  {page:'left',x:0,y:0,w:EDGE,h:H,kind:'wallEdge'},
+  {page:'right',x:SPINE,y:0,w:SPINE,h:EDGE,kind:'ceilingEdge'},
+  {page:'right',x:SPINE,y:H-EDGE,w:SPINE,h:EDGE,kind:'floorEdge'},
+  {page:'right',x:W-EDGE,y:0,w:EDGE,h:H,kind:'wallEdge'},
+];
+
+const player={x:60,y:H-EDGE-34,w:26,h:34,vx:0,vy:0,onGround:false,facing:1,squash:1};
+const player_start={x:60,y:H-EDGE-34};
+
+const flags={ warnedHood:false, route:null, stoppedAtDoor:false, saved:null, grannyAlive:null };
+
+const pageRecord=[
+  {key:'prologue',title:'序 ── 森で目覚める',filled:false,text:''},
+  {key:'meet',title:'赤い頭巾の少女',filled:false,text:''},
+  {key:'wolf',title:'森で出会った狼',filled:false,text:''},
+  {key:'granny',title:'おばあさんの家',filled:false,text:''},
+  {key:'result',title:'第一話の結末',filled:false,text:''},
+];
+function fillPage(key,text){ const p=pageRecord.find(p=>p.key===key); if(p){p.filled=true;p.text=text;} }
+
+const STAGE_DEFS={
+  forest_wake:{ label:'序 ── 森',
+    platforms:[
+      {page:'left',x:140,y:330,w:130,h:20,kind:'ledge'},
+      {page:'left',x:270,y:80,w:150,h:20,kind:'ceilingLedge'},
+      {page:'right',x:480,y:360,w:110,h:20,kind:'ledge'},
+      {page:'right',x:640,y:250,w:110,h:20,kind:'ledge'},
+      {page:'right',x:770,y:80,w:90,h:20,kind:'ceilingLedge'},
+    ],
+    boxes:[{x:380,y:H-EDGE-30,w:32,h:32}], enemies:[],
+    goal:{page:'right',x:800,y:100,w:26,h:26} },
+  forest_path:{ label:'第一話 ── 森の道',
+    platforms:[
+      {page:'left',x:60,y:380,w:90,h:20,kind:'ledge'},
+      {page:'left',x:190,y:290,w:90,h:20,kind:'ledge'},
+      {page:'left',x:320,y:190,w:100,h:20,kind:'ledge'},
+      {page:'left',x:150,y:70,w:170,h:20,kind:'ceilingLedge'},
+      {page:'right',x:520,y:330,w:110,h:20,kind:'ledge'},
+      {page:'right',x:640,y:200,w:200,h:20,kind:'ledge'},
+    ],
+    boxes:[{x:700,y:H-EDGE-30,w:32,h:32}], enemies:[],
+    goal:{page:'right',x:800,y:H-EDGE-40,w:26,h:26} },
+  wolf_boss:{ label:'第一話 ── おばあさんの家',
+    platforms:[
+      {page:'left',x:120,y:340,w:120,h:20,kind:'ledge'},
+      {page:'left',x:250,y:90,w:170,h:20,kind:'ceilingLedge'},
+      {page:'right',x:520,y:300,w:120,h:20,kind:'ledge'},
+      {page:'right',x:700,y:150,w:130,h:20,kind:'ledge'},
+      {page:'right',x:560,y:90,w:150,h:20,kind:'ceilingLedge'},
+    ],
+    boxes:[{x:300,y:H-EDGE-34,w:34,h:34},{x:640,y:H-EDGE-34,w:34,h:34}],
+    enemies:[], goal:null },
+};
+
+let platforms,boxes,enemies,goal;
+let clearing=false,clearT=0,goalPulse=0,hurtFlash=0,invincible=0;
+const flashPage={left:0,right:0};
+
+function loadStageDef(def){
+  gravity={left:1,right:1};
+  platforms=edges.concat((def.platforms||[]).map(p=>({...p})));
+  boxes=(def.boxes||[]).map(b=>({x:b.x,y:b.y,w:b.w,h:b.h,vx:0,vy:0,onGround:false,squash:1}));
+  enemies=(def.enemies||[]).map(e=>({page:e.page,x:e.x,y:e.y,w:e.w,h:e.h,dir:e.dir,
+    minX:e.page==='left'?EDGE:SPINE,maxX:e.page==='left'?SPINE:(W-EDGE),
+    vy:0,onGround:false,alive:true,squash:1,deathT:0}));
+  goal=def.goal?{...def.goal}:null;
+  player.x=player_start.x; player.y=player_start.y; player.vx=0; player.vy=0; player.squash=1;
+  clearing=false; clearT=0; flashPage.left=0; flashPage.right=0; updateHud();
+}
+function pageOf(e){ return (e.x+e.w/2)<SPINE?'left':'right'; }
+function currentPage(){ return (player.x+player.w/2)<SPINE?'left':'right'; }
+
+const keys={};
+window.addEventListener('keydown',e=>{ keys[e.key]=true;
+  if(e.key==='f'||e.key==='F'||e.code==='Space'){ onFlipKey(); e.preventDefault(); } });
+window.addEventListener('keyup',e=>keys[e.key]=false);
+
+function flipCurrentPage(){ const p=currentPage(); gravity[p]*=-1; flashPage[p]=1; updateHud(); }
+function onFlipKey(){
+  if(scene && scene.type==='qte' && qteActive){ resolveQTE(true); return; }
+  if(mode==='play'||mode==='boss'){ flipCurrentPage(); }
+}
+function updateHud(){
+  document.getElementById('hudLeft').textContent='← 左：'+(gravity.left===1?'通常':'反転');
+  document.getElementById('hudRight').textContent='右：'+(gravity.right===1?'通常':'反転')+' →';
+}
+
+function bindHold(id,on,off){ const el=document.getElementById(id);
+  el.addEventListener('pointerdown',e=>{e.preventDefault();on();});
+  el.addEventListener('pointerup',e=>off&&off());
+  el.addEventListener('pointerleave',e=>off&&off()); }
+bindHold('btnLeft',()=>keys['ArrowLeft']=true,()=>keys['ArrowLeft']=false);
+bindHold('btnRight',()=>keys['ArrowRight']=true,()=>keys['ArrowRight']=false);
+bindHold('btnJump',()=>keys['ArrowUp']=true,()=>keys['ArrowUp']=false);
+document.getElementById('btnFlip').addEventListener('pointerdown',e=>{e.preventDefault();onFlipKey();});
+
+/* ---- SCENES ---- */
+let scene=null, sceneIndex=0, mode='talk';
+
+const SCENES=[
+  { type:'talk', stage:'forest_wake', label:'序 ── 森', lines:[
+    {s:'',c:'narr',t:'森。仰向けに倒れた少年が、目を覚ます。手には一冊の本。'},
+    {s:'',c:'narr',t:'ページをめくると、ところどころ絵はあるが、大半は虫食いの白紙だった。'},
+    {s:'マリ',c:'mari',t:'あ、起きた。'},
+    {s:'',c:'narr',t:'木の陰から、十歳くらいの女の子が歩いてくる。落ち着いている。'},
+    {s:'マリ',c:'mari',t:'だいじょうぶ？　落ちてきたとき、けっこう派手だったよ。'},
+    {s:'マリ',c:'mari',t:'……うん、それ。それが大事なの。'},
+    {s:'マリ',c:'mari',t:'その本、全部埋めないと帰れないから。'},
+    {s:'マリ',c:'mari',t:'進むだけじゃダメだよ。ちゃんと見て、ちゃんと話して。そしたら勝手に書かれるから。'},
+    {s:'マリ',c:'mari',t:'飛ばしちゃダメ。一つでも空いてたら、完成しないの。'},
+    {s:'',c:'narr',t:'少年が本を差し出す。「これでいいの？」というように。'},
+    {s:'マリ',c:'mari',t:'……ううん。それは、あなたのだから。'},
+    {s:'マリ',c:'mari',t:'あっちに、赤い頭巾の子がいる。……気をつけて。'},
+    {s:'',c:'narr',t:'彼女は木の陰へ戻っていく。'},
+  ], onEnd:()=>{ fillPage('prologue','——少年は、白紙の本とともに森で目を覚ました。'); } },
+
+  { type:'play', stage:'forest_wake', label:'序 ── 森（崖を渡る）',
+    intro:{s:'',c:'narr',t:'森を少し進むと、崖。渡れない。本を、裏返してみよう。（F／Space または「本を裏返す」）'} },
+
+  { type:'talk', stage:'forest_wake', label:'序 ── 森', lines:[
+    {s:'マリ',c:'mari',t:'……そう。どこまでも落ちたりしないよ。'},
+    {s:'マリ',c:'mari',t:'ここ、本の中だから。ページより外には、いけないの。'},
+    {s:'',c:'narr',t:'心なしか、いつもより声のトーンが低い。気づく前に、彼女は木の陰へ戻っていく。'},
+  ] },
+
+  { type:'talk', stage:'forest_path', label:'第一話 ── 森の道', lines:[
+    {s:'',c:'narr',t:'道の途中、赤い頭巾の少女が歩いている。'},
+    {s:'赤ずきん',c:'hood',t:'あら、こんにちは。'},
+    {s:'赤ずきん',c:'hood',t:'おばあちゃんに、ガレットとバターの壺を届けに行くの。一緒に来る？'},
+    {s:'赤ずきん',c:'hood',t:'うれしい。森は、一人だと少し怖いから。'},
+    {s:'',c:'narr',t:'道中、赤ずきんが足を止める。少し先の水たまりを飛び越えられずにいる。'},
+    {s:'',c:'narr',t:'少年が本を裏返してみせる。世界が反転し、水たまりの上を軽々と越えられる。'},
+    {s:'赤ずきん',c:'hood',t:'わ、わ！　何それ！？'},
+    {s:'赤ずきん',c:'hood',t:'……あれ？　なんで途中で止まるの？'},
+    {s:'赤ずきん',c:'hood',t:'すごい、すごい！　あなた、魔法使いなの？'},
+    {s:'赤ずきん',c:'hood',t:'でも、ちょっと変な魔法。ふつう、魔法ってもっと……火とか出すものじゃない？'},
+    {s:'赤ずきん',c:'hood',t:'まあいいや。役に立つし！'},
+  ], onEnd:()=>{ fillPage('meet','——赤い頭巾の少女と出会い、道連れになった。'); } },
+
+  { type:'talk', stage:'forest_path', label:'第一話 ── 狼', lines:[
+    {s:'',c:'narr',t:'茂みの向こうから、狼が現れる。少年に気づき、一瞬動きを止める。'},
+    {s:'狼',c:'wolf',t:'こんにちは、赤ずきんちゃん。'},
+    {s:'赤ずきん',c:'hood',t:'こんにちは。'},
+    {s:'狼',c:'wolf',t:'どこへ行くんだい？'},
+    {s:'赤ずきん',c:'hood',t:'おばあちゃんのところ。ガレットとバターの壺を届けに。'},
+    {s:'狼',c:'wolf',t:'おばあさんは、どこに住んでいるの？'},
+    {s:'赤ずきん',c:'hood',t:'この先の、風車小屋を過ぎた、村で一番端のお家よ。'},
+    {s:'狼',c:'wolf',t:'僕もそっちへ行くところなんだ。君はその道を、僕はあっちの道を。どっちが早いか競争しよう。'},
+    {s:'',c:'narr',t:'狼は、少年の視線を避けるようにして、脇道へ入っていく。'},
+    {s:'',c:'narr',t:'少年は強い違和感を覚えた。赤ずきんに、伝えるべきか。'},
+  ], choices:[
+    { label:'狼はあやしい、と赤ずきんに伝える', set:()=>{flags.warnedHood=true;}, after:[
+      {s:'赤ずきん',c:'hood',t:'……ただの競争よ？　狼さん、いつも優しいもの。'},
+      {s:'',c:'narr',t:'少年がなおも訴える。'},
+      {s:'赤ずきん',c:'hood',t:'……分かった。じゃあ、急ぎましょう。'},
+    ]},
+    { label:'何も言わない', set:()=>{flags.warnedHood=false;}, after:[
+      {s:'',c:'narr',t:'少年は口をつぐんだ。赤ずきんは、鼻歌まじりに歩いていく。'},
+    ]},
+  ], onEnd:()=>{ fillPage('wolf', flags.warnedHood
+      ?'——少年は違和感に気づき、赤ずきんに危険を告げた。'
+      :'——狼は、脇道へ消えていった。'); } },
+
+  { type:'talk', stage:'forest_path', label:'第一話 ── 分かれ道', lines:[
+    {s:'',c:'narr',t:'森の分かれ道。狼が向かったかもしれない近道と、確実だが遅い遠回り。'},
+    {s:'赤ずきん',c:'hood',t:'近道、行く？'},
+  ], choices:[
+    { label:'近道を行く（狼を追う）', set:()=>{flags.route='shortcut';}, after:[
+      {s:'',c:'narr',t:'少年は赤ずきんと別れ、近道を駆けた。狼より先に、おばあさんの家へ。'} ]},
+    { label:'遠回りを行く（赤ずきんと一緒に）', set:()=>{flags.route='detour';}, after:[
+      {s:'',c:'narr',t:'二人は安全な遠回りを選んだ。だが、その分だけ時間がかかる。'} ]},
+  ] },
+
+  { type:'talk', stage:'wolf_boss', label:'第一話 ── おばあさんの家', dynamic:'arriveHouse' },
+
+  { type:'end', label:'第一話・完', dynamic:'result' },
+];
+
+let wolf=null;
+function spawnWolf(advantaged){
+  wolf={ x:SPINE+120, y:H-EDGE-52, w:44, h:36, dir:-1,
+    hp:advantaged?2:3, maxhp:3, vy:0, vx:0, onGround:false, page:'right',
+    stun:0, hitFlash:0, alive:true, deathT:0, squash:1, lungeCD:1.4 };
+}
+
+function startScene(idx){
+  sceneIndex=idx; scene=SCENES[idx]; if(!scene) return;
+  if(scene.dynamic==='arriveHouse'){ setupArriveHouse(); return; }
+  if(scene.dynamic==='result'){ runResult(); return; }
+  if(scene.type==='talk'){
+    if(scene.stage) loadStageDef(STAGE_DEFS[scene.stage]); mode='idle';
+    document.getElementById('hudStage').textContent=scene.label||'';
+    beginDialogue(scene.lines, scene.choices, ()=>{ if(scene.onEnd) scene.onEnd(); advanceScene(); });
+  } else if(scene.type==='play'){
+    loadStageDef(STAGE_DEFS[scene.stage]); mode='play';
+    document.getElementById('hudStage').textContent=scene.label||'';
+    if(scene.intro){ beginDialogue([scene.intro],null,()=>{ hideDialogue(); mode='play'; }); }
+  } else if(scene.type==='boss'){
+    loadStageDef(STAGE_DEFS['wolf_boss']); spawnWolf(scene.advantaged); mode='idle';
+    document.getElementById('hudStage').textContent='第一話 ── 狼との戦い';
+    beginDialogue(scene.intro||[],null,()=>{ hideDialogue(); mode='boss'; });
+  } else if(scene.type==='qte'){ setupQTE(scene); }
+  else if(scene.type==='end'){ runResult(); }
+}
+function advanceScene(){ startScene(sceneIndex+1); }
+function injectSceneAfterCurrent(sc){ SCENES.splice(sceneIndex+1,0,sc); }
+
+function setupArriveHouse(){
+  loadStageDef(STAGE_DEFS['wolf_boss']); mode='idle';
+  document.getElementById('hudStage').textContent='第一話 ── おばあさんの家';
+  if(flags.route==='shortcut'){
+    beginDialogue([
+      {s:'',c:'narr',t:'少年は先回りした。戸を開けると――寝間着姿の狼が、まさに牙をむこうとしていた。'},
+      {s:'おばあさん',c:'granny',t:'ひ……！　だ、誰か……！'},
+      {s:'',c:'narr',t:'狼が、こちらを振り向く。間に合った。'},
+    ], null, ()=>{
+      injectSceneAfterCurrent({type:'boss',advantaged:true,intro:[
+        {s:'',c:'narr',t:'本を裏返し、天井から家具を落として狼を追い詰めろ。'} ]});
+      advanceScene();
+    });
+    return;
+  }
+  beginDialogue([
+    {s:'',c:'narr',t:'家が見える。戸が閉まっている。'},
+    {s:'赤ずきん',c:'hood',t:'（戸を叩く）おばあちゃん、わたしよ。'},
+    {s:'狼',c:'wolf',t:'（中から、しわがれ声で）掛け金を引いて、戸を開けてちょうだい。'},
+    {s:'',c:'narr',t:'赤ずきんが、掛け金に手を伸ばす。'},
+  ], [
+    { label:'赤ずきんを止める',
+      set:()=>{ flags.stoppedAtDoor = flags.warnedHood; },
+      after: ()=> flags.warnedHood ? [
+        {s:'',c:'narr',t:'少年が手を掴む。'},
+        {s:'赤ずきん',c:'hood',t:'……どうしたの？'},
+        {s:'',c:'narr',t:'少年が戸を指し、首を振る。'},
+        {s:'赤ずきん',c:'hood',t:'……分かった。'},
+        {s:'',c:'narr',t:'少年が先に、そっと中をうかがう。ベッドに、寝間着の狼が横たわっていた。奇襲できる。'},
+      ] : [
+        {s:'',c:'narr',t:'少年が手を伸ばす。だが、赤ずきんはもう掛け金を引いていた。'},
+        {s:'赤ずきん',c:'hood',t:'……？　おばあちゃん、待たせちゃ悪いもの。'},
+        {s:'',c:'narr',t:'止める間もなく、赤ずきんは先に中へ入っていく。'},
+      ]
+    },
+    { label:'何もしない', set:()=>{flags.stoppedAtDoor=false;}, after:[
+      {s:'',c:'narr',t:'赤ずきんが掛け金を引き、中へ入っていく。少年もあとに続いた。'},
+    ]},
+  ], ()=>{
+    if(flags.stoppedAtDoor){
+      injectSceneAfterCurrent({type:'boss',advantaged:true,intro:[
+        {s:'',c:'narr',t:'眠ったふりの狼へ、先に踏み込め。本を裏返し、家具を落とせ。'} ]});
+      advanceScene();
+    } else {
+      injectSceneAfterCurrent({type:'qte'});
+      advanceScene();
+    }
+  });
+}
+
+/* QTE */
+let qteActive=false, qteTimer=0, qteWindow=0;
+function setupQTE(sc){
+  loadStageDef(STAGE_DEFS['wolf_boss']); mode='idle'; qteActive=false;
+  document.getElementById('hudStage').textContent='第一話 ── ！';
+  const lines=[
+    {s:'狼',c:'wolf',t:'（おばあさんの声で）ガレットとバターの壺は戸棚に。そして、わたしのそばにおいで。'},
+    {s:'赤ずきん',c:'hood',t:'まあ、おばあちゃん、なんて大きな腕なの。'},
+    {s:'狼',c:'wolf',t:'おまえをよく抱きしめるためだよ。'},
+    {s:'赤ずきん',c:'hood',t:'なんて大きな耳なの。'},
+    {s:'狼',c:'wolf',t:'よく聞こえるようにだよ。'},
+    {s:'赤ずきん',c:'hood',t:'なんて大きな目なの。'},
+    {s:'狼',c:'wolf',t:'よく見えるようにだよ。'},
+    {s:'赤ずきん',c:'hood',t:'なんて大きな歯なの。'},
+    {s:'狼',c:'wolf',t:'……おまえを食べるためだよ！'},
+  ];
+  beginDialogue(lines,null,()=>{
+    hideDialogue(); qteActive=true;
+    qteWindow=1.6; qteTimer=0; mode='qte'; scene={type:'qte'};
+    document.getElementById('qte').classList.add('show');
+    document.getElementById('qteBig').textContent='狼が跳ねた！';
+  });
+}
+document.getElementById('qteBtn').addEventListener('pointerdown',e=>{ e.preventDefault(); if(qteActive) resolveQTE(true); });
+function resolveQTE(success){
+  if(!qteActive) return; qteActive=false;
+  document.getElementById('qte').classList.remove('show');
+  if(success){
+    beginDialogue([
+      {s:'',c:'narr',t:'間に合った。少年は本を裏返し、狼の軌道を逸らして赤ずきんを引き離した。'},
+    ], null, ()=>{
+      injectSceneAfterCurrent({type:'boss',advantaged:false,intro:[
+        {s:'',c:'narr',t:'狼が牙をむく。本を裏返し、家具を落として反撃しろ。'} ]});
+      advanceScene();
+    });
+  } else {
+    flags.saved=false;
+    beginDialogue([
+      {s:'',c:'narr',t:'――間に合わなかった。'},
+      {s:'',c:'narr',t:'画面が暗転する。音が、止む。'},
+    ], null, ()=>{
+      injectSceneAfterCurrent({type:'boss',advantaged:false,hollow:true,intro:[
+        {s:'',c:'narr',t:'明るくなると、部屋には誰もいない。ベッドに、赤い頭巾だけが残されていた。'} ]});
+      advanceScene();
+    });
+  }
+}
+
+function runResult(){
+  mode='idle';
+  document.getElementById('hudStage').textContent='第一話・完';
+  // 赤ずきんが助かったか（QTE成功／ボス勝利）
+  const hoodSaved = flags.saved!==false;
+  // おばあさんが助かるのは近道ルートだけ。狼がおばあさんを襲う現場に間に合うため。
+  // 遠回りでは、家に着いた時点でおばあさんはすでに食べられている。
+  const grannySaved = (flags.route==='shortcut') && hoodSaved;
+  flags.grannyAlive = grannySaved;
+
+  let lines;
+  if(hoodSaved){
+    if(flags.route==='shortcut'){
+      // 近道：おばあさんも赤ずきんも生存
+      lines=[
+        {s:'おばあさん',c:'granny',t:'ああ、助かった……。あんた、いったい何者だい。'},
+        {s:'',c:'narr',t:'そこへ、赤ずきんが息を切らして駆けこんでくる。'},
+        {s:'赤ずきん',c:'hood',t:'おばあちゃん！　……あ、あなたも。もしかして、助けてくれたの？'},
+        {s:'',c:'narr',t:'少年は何も言わない。ただ、頷く。'},
+        {s:'赤ずきん',c:'hood',t:'……森って、本当は怖いところなのね。'},
+        {s:'',c:'narr',t:'——少年は、間に合った。赤頭巾も、おばあさんも、家に帰った。'},
+      ];
+    } else {
+      // 遠回り：おばあさんはすでに食べられている。赤ずきんだけ救えた。
+      lines=[
+        {s:'赤ずきん',c:'hood',t:'……ありがとう。あなたが来てなかったら、わたし……'},
+        {s:'',c:'narr',t:'少年は何も言わない。ただ、頷く。'},
+        {s:'',c:'narr',t:'赤ずきんが、空っぽのベッドを見つめる。'},
+        {s:'赤ずきん',c:'hood',t:'……おばあちゃんは？　ねえ、おばあちゃんは、どこ……？'},
+        {s:'',c:'narr',t:'少年は、答えられなかった。'},
+        {s:'',c:'narr',t:'——少年は、赤頭巾だけを、間に合わせた。'},
+      ];
+    }
+  } else {
+    // 救出失敗：赤ずきんもおばあさんも失われる
+    lines=[
+      {s:'',c:'narr',t:'狼は倒れた。だが、赤ずきんも、おばあさんも、もう戻らない。'},
+      {s:'',c:'narr',t:'ベッドの上の赤い頭巾だけが、静かにそこにあった。'},
+      {s:'',c:'narr',t:'——少年は、間に合わなかった。'},
+    ];
+  }
+
+  // ページ記録（救済の有無を明記する）
+  fillPage('granny', grannySaved
+    ? '——おばあさんは無事だった。少年が、狼より先に家へ着いたから。'
+    : (flags.route==='shortcut'
+        ? '——おばあさんを救えなかった。'
+        : '——家に着いたとき、おばあさんはすでに狼の腹の中だった。'));
+  const hoodLine = hoodSaved ? '赤ずきん：救えた' : '赤ずきん：救えなかった';
+  const grannyLine = grannySaved ? 'おばあさん：救えた' : 'おばあさん：救えなかった';
+  let resultText;
+  if(hoodSaved && grannySaved) resultText = '——少年は、間に合った。二人とも、家に帰った。';
+  else if(hoodSaved && !grannySaved) resultText = '——少年は、赤頭巾だけを、間に合わせた。';
+  else resultText = '——少年は、間に合わなかった。';
+  fillPage('result', resultText + '\n（' + hoodLine + '／' + grannyLine + '）');
+  beginDialogue(lines,null,()=>{
+    hideDialogue();
+    beginDialogue([
+      {s:'マリ',c:'mari',t:'……ちゃんと、埋めてきた？'},
+      {s:'',c:'narr',t:'（📖「本を開く」から、これまでのページを読み返せる。第二話は、また今度。）'},
+    ], null, ()=>{ hideDialogue(); mode='idle'; openBookModal(); });
+  });
+}
+
+/* Dialogue engine */
+const dlg=document.getElementById('dlg');
+const dlgSpeaker=document.getElementById('dlgSpeaker');
+const dlgLine=document.getElementById('dlgLine');
+const dlgChoices=document.getElementById('dlgChoices');
+const dlgHint=document.getElementById('dlgHint');
+let dq=[], dChoices=null, dOnComplete=null;
+let typing=false, typeTarget='', typeI=0, typeAcc=0;
+let choicesShown=false; // true only once the choice buttons are actually rendered
+
+function beginDialogue(lines,choices,onComplete){
+  dq=lines.slice(); dChoices=choices||null; dOnComplete=onComplete||null;
+  choicesShown=false;
+  dlg.classList.add('show'); dlgChoices.innerHTML=''; nextLine();
+}
+function nextLine(){
+  dlgChoices.innerHTML='';
+  if(dq.length===0){ if(dChoices){ showChoices(dChoices); return; } dlgHint.style.display='none'; finishDialogue(); return; }
+  const line=dq.shift();
+  dlgSpeaker.className='speaker '+(line.c||''); dlgSpeaker.textContent=line.s||'';
+  typing=true; typeTarget=line.t||''; typeI=0; typeAcc=0; dlgLine.textContent=''; dlgHint.style.display='block';
+}
+function showChoices(choices){
+  choicesShown=true;
+  dlgSpeaker.textContent=''; dlgLine.textContent=''; dlgHint.style.display='none'; dlgChoices.innerHTML='';
+  choices.forEach(ch=>{
+    const b=document.createElement('button'); b.className='choice'; b.textContent=ch.label;
+    b.addEventListener('click',()=>{ if(ch.set) ch.set(); dChoices=null; choicesShown=false;
+      const resolvedAfter = typeof ch.after==='function' ? ch.after() : ch.after;
+      dq = resolvedAfter ? resolvedAfter.slice() : []; if(dq.length){ nextLine(); } else { finishDialogue(); } });
+    dlgChoices.appendChild(b);
+  });
+}
+function finishDialogue(){ const cb=dOnComplete; dOnComplete=null; if(cb) cb(); }
+function hideDialogue(){ dlg.classList.remove('show'); }
+function tryAdvanceDialogue(){
+  if(!dlg.classList.contains('show')) return false;
+  if(choicesShown) return false; // buttons are already up — force a real tap on one of them
+  if(typing){ dlgLine.textContent=typeTarget; typing=false; return true; }
+  nextLine(); return true;
+}
+canvas.addEventListener('pointerdown',e=>{ if(dlg.classList.contains('show')){ e.preventDefault(); tryAdvanceDialogue(); } });
+window.addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key==='z'||e.key==='Z') && dlg.classList.contains('show')){ e.preventDefault(); tryAdvanceDialogue(); } });
+
+/* Physics */
+function rectsOverlap(a,b){ return a.x<b.x+b.w && a.x+a.w>b.x && a.y<b.y+b.h && a.y+a.h>b.y; }
+function pagePlatforms(page){ return platforms.filter(p=>p.page===page); }
+
+let lastTime=performance.now();
+function loop(now){ let dt=(now-lastTime)/1000; dt=Math.min(dt,1/30); lastTime=now; update(dt); render(); requestAnimationFrame(loop); }
+
+function update(dt){
+  goalPulse+=dt;
+  flashPage.left=Math.max(0,flashPage.left-dt*2.2);
+  flashPage.right=Math.max(0,flashPage.right-dt*2.2);
+  hurtFlash=Math.max(0,hurtFlash-dt*2.5);
+  invincible=Math.max(0,invincible-dt);
+
+  if(mode==='qte'){ updateQTE(dt); return; }
+  if(mode!=='play'&&mode!=='boss') return;
+
+  if(clearing){ clearT+=dt; if(clearT>1.0){ clearing=false; advanceScene(); } return; }
+
+  const page=currentPage(); const g=gravity[page];
+  const left=keys['ArrowLeft']||keys['a']||keys['A'];
+  const right=keys['ArrowRight']||keys['d']||keys['D'];
+  if(left&&!right){ player.vx-=ACCEL*dt; player.facing=-1; }
+  else if(right&&!left){ player.vx+=ACCEL*dt; player.facing=1; }
+  else{ const d=FRICTION*dt; if(Math.abs(player.vx)<=d) player.vx=0; else player.vx-=Math.sign(player.vx)*d; }
+  player.vx=Math.max(-MAX_SPEED,Math.min(MAX_SPEED,player.vx));
+
+  player.vy+=GRAVITY*g*dt;
+  const jump=keys['ArrowUp']||keys['w']||keys['W'];
+  if(jump&&player.onGround){ player.vy=-JUMP_SPEED*g; player.onGround=false; }
+
+  for(const box of boxes){
+    const bg=gravity[pageOf(box)]; box.vy+=GRAVITY*bg*dt;
+    const d=FRICTION*dt; if(Math.abs(box.vx)<=d) box.vx=0; else box.vx-=Math.sign(box.vx)*d;
+    box.vx=Math.max(-MAX_SPEED,Math.min(MAX_SPEED,box.vx));
+  }
+
+  const prevX=player.x; player.x+=player.vx*dt; const dx=player.x-prevX;
+  if(dx!==0){ for(const box of boxes){ if(rectsOverlap(player,box)){ box.x+=dx; box.vx=player.vx; } } }
+  for(const box of boxes) resolveBodyCollisions(box,'x',pagePlatforms(pageOf(box)));
+  resolveBodyCollisions(player,'x',pagePlatforms(page).concat(boxes));
+
+  for(const en of enemies){
+    if(!en.alive){ en.deathT+=dt; en.squash+=(1-en.squash)*Math.min(1,dt*4); continue; }
+    const active=(en.page===currentPage()); const eg=gravity[en.page];
+    if(active){ en.x+=en.dir*ENEMY_SPEED*dt;
+      if(en.x<en.minX){ en.x=en.minX; en.dir=1; }
+      if(en.x+en.w>en.maxX){ en.x=en.maxX-en.w; en.dir=-1; } }
+    en.vy+=GRAVITY*eg*dt; en.y+=en.vy*dt; en.onGround=false;
+    resolveBodyCollisions(en,'y',pagePlatforms(en.page)); en.squash+=(1-en.squash)*Math.min(1,dt*10);
+  }
+
+  for(const box of boxes){
+    box.y+=box.vy*dt; box.onGround=false;
+    resolveBodyCollisions(box,'y',pagePlatforms(pageOf(box))); box.squash+=(1-box.squash)*Math.min(1,dt*10);
+    for(const en of enemies){
+      if(!en.alive||en.page!==pageOf(box)) continue; const eg=gravity[en.page];
+      if(rectsOverlap(box,en)&&box.vy*eg>150){ en.alive=false; en.squash=0.18; en.vy=0; en.deathT=0;
+        box.y=(eg===1)?en.y-box.h:en.y+en.h; box.vy=0; box.onGround=true; box.squash=1.3; }
+    }
+    if(mode==='boss'&&wolf&&wolf.alive){
+      const wg=gravity[wolf.page];
+      if(rectsOverlap(box,wolf)&&box.vy*wg>140&&wolf.stun<=0){ damageWolf(box); box.vy=-box.vy*0.3; box.squash=1.3; }
+    }
+  }
+
+  player.y+=player.vy*dt; player.onGround=false;
+  resolveBodyCollisions(player,'y',pagePlatforms(page).concat(boxes));
+
+  if(invincible<=0){ for(const en of enemies){ if(en.alive&&rectsOverlap(player,en)){ respawnPlayer(); break; } } }
+
+  if(mode==='boss'&&wolf) updateWolf(dt);
+
+  if(goal&&rectsOverlap(player,goal)){ clearing=true; clearT=0; }
+
+  player.x=Math.max(-40,Math.min(W+40,player.x));
+  player.y=Math.max(-400,Math.min(H+400,player.y));
+  player.squash+=(1-player.squash)*Math.min(1,dt*10);
+}
+
+function respawnPlayer(){ player.x=player_start.x; player.y=player_start.y; player.vx=0; player.vy=0; player.squash=0.6; hurtFlash=1; invincible=1.0; }
+
+function resolveBodyCollisions(body,axis,colliders){
+  for(const plat of colliders){
+    if(plat===body) continue; if(!rectsOverlap(body,plat)) continue;
+    if(axis==='x'){ if(body.vx>0) body.x=plat.x-body.w; else if(body.vx<0) body.x=plat.x+plat.w; body.vx=0; }
+    else{ if(body.vy>0){ body.y=plat.y-body.h; body.vy=0; body.onGround=true; body.squash=1.28; }
+      else if(body.vy<0){ body.y=plat.y+plat.h; body.vy=0; body.onGround=true; body.squash=1.28; } }
+  }
+}
+
+function updateQTE(dt){ if(!qteActive) return; qteTimer+=dt; if(qteTimer>=qteWindow){ resolveQTE(false); } }
+
+/* Boss */
+function damageWolf(source){
+  if(!wolf||!wolf.alive) return;
+  wolf.hp-=1; wolf.hitFlash=1; wolf.stun=0.7; wolf.squash=0.6;
+  wolf.dir=(source&&source.x<wolf.x)?1:-1; wolf.vy=-260;
+  if(wolf.hp<=0){ defeatWolf(); }
+}
+function defeatWolf(){
+  wolf.alive=false; wolf.deathT=0; wolf.squash=0.2;
+  const hollow=scene&&scene.hollow;
+  setTimeout(()=>{ flags.saved = hollow?false:true; mode='idle'; advanceScene(); },900);
+}
+function updateWolf(dt){
+  wolf.hitFlash=Math.max(0,wolf.hitFlash-dt*2.5); wolf.page=pageOf(wolf);
+  const wg=gravity[wolf.page];
+  if(!wolf.alive){ wolf.deathT+=dt; return; }
+  if(wolf.stun>0){ wolf.stun-=dt; }
+  else{
+    wolf.lungeCD-=dt; const dir=(player.x<wolf.x)?-1:1; wolf.dir=dir;
+    wolf.x+=dir*(ENEMY_SPEED*1.3)*dt;
+    if(wolf.lungeCD<=0&&wolf.onGround){ wolf.vy=-520*wg; wolf.vx=dir*260; wolf.lungeCD=1.6; }
+  }
+  wolf.vy+=GRAVITY*wg*dt; wolf.x+=(wolf.vx||0)*dt; wolf.vx=(wolf.vx||0)*0.9;
+  wolf.y+=wolf.vy*dt; wolf.onGround=false;
+  if(wolf.x<EDGE){ wolf.x=EDGE; } if(wolf.x+wolf.w>W-EDGE){ wolf.x=W-EDGE-wolf.w; }
+  resolveBodyCollisions(wolf,'y',pagePlatforms(wolf.page));
+  wolf.squash+=(1-wolf.squash)*Math.min(1,dt*8);
+  if(invincible<=0&&wolf.alive&&wolf.stun<=0&&rectsOverlap(player,wolf)){ respawnPlayer(); }
+}
+
+/* Render */
+function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function roundRectPath(x,y,w,h,r){ ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+function drawGravityIcon(cx,cy,dir,glow){
+  ctx.save(); ctx.translate(cx,cy);
+  if(glow>0){ ctx.shadowColor='rgba(176,141,87,0.9)'; ctx.shadowBlur=14*glow; }
+  ctx.strokeStyle='#5a4a2e'; ctx.lineWidth=2.2; ctx.beginPath();
+  if(dir===1){ ctx.moveTo(0,-8); ctx.lineTo(0,8); ctx.moveTo(-5,3); ctx.lineTo(0,8); ctx.lineTo(5,3); }
+  else{ ctx.moveTo(0,8); ctx.lineTo(0,-8); ctx.moveTo(-5,-3); ctx.lineTo(0,-8); ctx.lineTo(5,-3); }
+  ctx.stroke(); ctx.restore();
+}
+function drawPageEdges(){
+  ctx.save(); const T=22;
+  function eb(x,y,w,h,gx0,gy0,gx1,gy1,color){ const g=ctx.createLinearGradient(gx0,gy0,gx1,gy1); g.addColorStop(0,color); g.addColorStop(1,'rgba(58,50,38,0)'); ctx.fillStyle=g; ctx.fillRect(x,y,w,h); }
+  eb(0,H-T,W,T,0,H,0,H-T,'rgba(87,100,74,0.5)');
+  eb(0,0,W,T,0,0,0,T,'rgba(43,46,74,0.4)');
+  eb(0,0,T,H,0,0,T,0,'rgba(176,141,87,0.35)');
+  eb(W-T,0,T,H,W,0,W-T,0,'rgba(176,141,87,0.35)');
+  ctx.strokeStyle='rgba(58,50,38,0.6)'; ctx.lineWidth=3; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(EDGE,EDGE); ctx.lineTo(SPINE,EDGE); ctx.moveTo(EDGE,H-EDGE); ctx.lineTo(SPINE,H-EDGE); ctx.moveTo(EDGE,EDGE); ctx.lineTo(EDGE,H-EDGE); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(SPINE,EDGE); ctx.lineTo(W-EDGE,EDGE); ctx.moveTo(SPINE,H-EDGE); ctx.lineTo(W-EDGE,H-EDGE); ctx.moveTo(W-EDGE,EDGE); ctx.lineTo(W-EDGE,H-EDGE); ctx.stroke();
+  ctx.restore();
+}
+function drawPlayer(){
+  const page=currentPage(); const g=gravity[page];
+  ctx.save(); if(invincible>0){ ctx.globalAlpha=(Math.floor(invincible*16)%2===0)?0.4:1; }
+  ctx.translate(player.x+player.w/2,player.y+player.h/2); ctx.scale(player.facing,g);
+  const sx=player.squash, sy=2-player.squash; const hw=(player.w/2)*sx, hh=(player.h/2)*sy;
+  ctx.beginPath(); ctx.fillStyle='#2b2e4a'; roundRectPath(-hw,-hh,hw*2,hh*2,9); ctx.fill();
+  ctx.fillStyle='#b08d57'; ctx.beginPath(); ctx.moveTo(-4,-hh); ctx.lineTo(0,-hh-9); ctx.lineTo(4,-hh); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#e8dcc0'; ctx.beginPath(); ctx.arc(-5,-2,2.4,0,Math.PI*2); ctx.arc(5,-2,2.4,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+function drawEnemy(en){
+  const eg=gravity[en.page]; ctx.save();
+  const sx=en.squash, sy=2-en.squash; const hw=(en.w/2)*sx, hh=(en.h/2)*sy;
+  ctx.translate(en.x+en.w/2,en.y+en.h/2); ctx.scale(en.dir>=0?1:-1,eg);
+  if(!en.alive){ ctx.globalAlpha=Math.max(0.25,1-en.deathT*0.6); ctx.beginPath(); roundRectPath(-hw*1.3,-hh*0.35,hw*2.6,hh*0.7,5); ctx.fillStyle='#4a4e6d'; ctx.fill(); ctx.restore(); return; }
+  ctx.beginPath(); roundRectPath(-hw,-hh,hw*2,hh*2,7); ctx.fillStyle='#3a2f2a'; ctx.fill();
+  ctx.fillStyle='#3a2f2a'; ctx.beginPath(); ctx.moveTo(hw-6,-hh); ctx.lineTo(hw-2,-hh-8); ctx.lineTo(hw+2,-hh); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#c9503f'; ctx.beginPath(); ctx.arc(hw-8,-2,2.2,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+function drawWolf(){
+  if(!wolf) return; const wg=gravity[wolf.page]; ctx.save();
+  const sx=wolf.squash, sy=2-wolf.squash; const hw=(wolf.w/2)*sx, hh=(wolf.h/2)*sy;
+  ctx.translate(wolf.x+wolf.w/2,wolf.y+wolf.h/2); ctx.scale(wolf.dir>=0?1:-1,wg);
+  if(!wolf.alive){ ctx.globalAlpha=Math.max(0.2,1-wolf.deathT*0.5); ctx.beginPath(); roundRectPath(-hw*1.35,-hh*0.4,hw*2.7,hh*0.8,6); ctx.fillStyle='#3a2f2a'; ctx.fill(); ctx.restore(); return; }
+  ctx.beginPath(); roundRectPath(-hw,-hh,hw*2,hh*2,8); ctx.fillStyle=wolf.hitFlash>0?'#8b3a2f':'#3a2f2a'; ctx.fill();
+  ctx.beginPath(); roundRectPath(hw-4,-hh*0.2,hw*0.5,hh*0.5,4); ctx.fillStyle='#2c231f'; ctx.fill();
+  ctx.fillStyle='#3a2f2a'; ctx.beginPath(); ctx.moveTo(hw-10,-hh); ctx.lineTo(hw-4,-hh-11); ctx.lineTo(hw+2,-hh); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-hw+2,-hh); ctx.lineTo(-hw+8,-hh-11); ctx.lineTo(-hw+14,-hh); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#c9503f'; ctx.beginPath(); ctx.arc(hw-9,-3,2.6,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+  ctx.save();
+  for(let i=0;i<wolf.maxhp;i++){ ctx.fillStyle=i<wolf.hp?'#c9503f':'rgba(90,74,46,0.4)'; ctx.beginPath(); ctx.arc(wolf.x+8+i*12,wolf.y-12,4,0,Math.PI*2); ctx.fill(); }
+  ctx.restore();
+}
+function drawGoal(){
+  if(!goal) return; const g=gravity[goal.page]; const pulse=0.5+0.5*Math.sin(goalPulse*3);
+  ctx.save(); ctx.translate(goal.x+goal.w/2,goal.y+goal.h/2); ctx.scale(1,g);
+  ctx.shadowColor='rgba(176,141,87,0.9)'; ctx.shadowBlur=10+6*pulse;
+  const hw=goal.w/2,hh=goal.h/2; ctx.beginPath();
+  ctx.moveTo(-hw,-hh); ctx.lineTo(hw,-hh); ctx.lineTo(hw,hh); ctx.lineTo(0,hh-6); ctx.lineTo(-hw,hh); ctx.closePath();
+  ctx.fillStyle='#b08d57'; ctx.fill(); ctx.strokeStyle='rgba(58,50,38,0.6)'; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.restore();
+}
+function drawBox(box){
+  ctx.save(); const sx=box.squash, sy=2-box.squash; const hw=(box.w/2)*sx, hh=(box.h/2)*sy;
+  ctx.translate(box.x+box.w/2,box.y+box.h/2);
+  ctx.beginPath(); roundRectPath(-hw,-hh,hw*2,hh*2,6); ctx.fillStyle='#8b5e63'; ctx.fill();
+  ctx.strokeStyle='rgba(43,46,74,0.35)'; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.strokeStyle='rgba(232,220,192,0.5)'; ctx.lineWidth=2; ctx.beginPath();
+  ctx.moveTo(-hw+4,-hh+4); ctx.lineTo(hw-4,hh-4); ctx.moveTo(hw-4,-hh+4); ctx.lineTo(-hw+4,hh-4); ctx.stroke();
+  ctx.restore();
+}
+function render(){
+  ctx.clearRect(0,0,W,H); ctx.drawImage(paper,0,0);
+  ctx.fillStyle='rgba(87,100,74,0.05)'; ctx.fillRect(0,0,SPINE,H);
+  ctx.fillStyle='rgba(139,94,99,0.05)'; ctx.fillRect(SPINE,0,SPINE,H);
+  if(gravity.left===-1){ ctx.fillStyle='rgba(43,46,74,0.06)'; ctx.fillRect(0,0,SPINE,H); }
+  if(gravity.right===-1){ ctx.fillStyle='rgba(43,46,74,0.06)'; ctx.fillRect(SPINE,0,SPINE,H); }
+  const sg=ctx.createLinearGradient(SPINE-16,0,SPINE+16,0);
+  sg.addColorStop(0,'rgba(58,50,38,0)'); sg.addColorStop(0.5,'rgba(58,50,38,0.35)'); sg.addColorStop(1,'rgba(58,50,38,0)');
+  ctx.fillStyle=sg; ctx.fillRect(SPINE-16,0,32,H);
+  drawPageEdges();
+  for(const plat of platforms){
+    if(plat.kind!=='ledge'&&plat.kind!=='ceilingLedge') continue;
+    const inv=gravity[plat.page]===-1;
+    ctx.save(); roundRect(plat.x,plat.y,plat.w,plat.h,9); ctx.fillStyle='#6b5b46'; ctx.fill();
+    ctx.fillStyle='rgba(232,220,192,0.28)';
+    if(!inv) ctx.fillRect(plat.x+4,plat.y+2,plat.w-8,3); else ctx.fillRect(plat.x+4,plat.y+plat.h-5,plat.w-8,3);
+    ctx.restore();
+  }
+  drawGravityIcon(SPINE/2,20,gravity.left,flashPage.left);
+  drawGravityIcon(SPINE+SPINE/2,20,gravity.right,flashPage.right);
+  drawGoal();
+  for(const box of boxes) drawBox(box);
+  for(const en of enemies) drawEnemy(en);
+  if(mode==='boss') drawWolf();
+  drawPlayer();
+  if(hurtFlash>0){ ctx.fillStyle=`rgba(139,20,20,${hurtFlash*0.35})`; ctx.fillRect(0,0,W,H); }
+  if(clearing){
+    const t=Math.min(1,clearT/1.0); const fade=t<0.5?(t/0.5):(1-(t-0.5)/0.5);
+    ctx.save(); ctx.fillStyle=`rgba(232,220,192,${0.55*fade})`; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle=`rgba(43,46,74,${0.9*fade})`; ctx.font="600 24px 'Zen Old Mincho', serif";
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('ページをめくっています…',W/2,H/2); ctx.restore();
+  }
+}
+
+/* typewriter */
+function typeTick(dt){
+  if(!typing) return; typeAcc+=dt; const cps=42;
+  while(typeAcc>1/cps && typeI<typeTarget.length){ typeAcc-=1/cps; typeI++; }
+  dlgLine.textContent=typeTarget.slice(0,typeI); if(typeI>=typeTarget.length) typing=false;
+}
+let ttLast=performance.now();
+function typeLoop(now){ const dt=(now-ttLast)/1000; ttLast=now; typeTick(dt); requestAnimationFrame(typeLoop); }
+requestAnimationFrame(typeLoop);
+
+/* Book modal */
+const bookModal=document.getElementById('bookModal');
+function openBookModal(){
+  const list=document.getElementById('pageList'); list.innerHTML='';
+  pageRecord.forEach(p=>{
+    const div=document.createElement('div'); div.className='page-entry'+(p.filled?'':' empty');
+    const worm=p.filled?'':'<span class="wormhole">◌ ◌ ◌ ◌ ◌ ◌</span>';
+    div.innerHTML=`<div class="title">${p.title}</div><div class="body">${ p.filled?escapeHtml(p.text):'（虫食い ── まだ埋まっていない）<br>'+worm }</div>`;
+    list.appendChild(div);
+  });
+  bookModal.classList.add('show');
+}
+function escapeHtml(s){ return s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+document.getElementById('openBook').addEventListener('click',openBookModal);
+document.getElementById('closeBook').addEventListener('click',()=>bookModal.classList.remove('show'));
+bookModal.addEventListener('click',e=>{ if(e.target===bookModal) bookModal.classList.remove('show'); });
+
+/* Boot */
+loadStageDef(STAGE_DEFS['forest_wake']);
+startScene(0);
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
