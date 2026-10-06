@@ -112,7 +112,8 @@
       <span><b>← →</b> 移動</span>
       <span><b>↑ / W</b> ジャンプ</span>
       <span><b>F / Space</b> 重力反転</span>
-      <span>光る<b>栞</b>に触れて進む</span>
+      <span>キャラに近づいて<b>▲</b>で話す</span>
+      <span>右ページの<b>右端</b>まで進むとページがめくれる</span>
     </div>
 
     <div class="touch-ui">
@@ -217,22 +218,84 @@ const STAGE_DEFS={
     ],
     boxes:[{x:300,y:H-EDGE-34,w:34,h:34},{x:640,y:H-EDGE-34,w:34,h:34}],
     enemies:[], goal:null },
+
+  /* ---- サブステージ（横スクロール型：左から右へ。右の端まで行くとクリア） ---- */
+  sub1:{ label:'森の小道',
+    platforms:[
+      {page:'left',x:120,y:360,w:120,h:20,kind:'ledge'},
+      {page:'left',x:300,y:280,w:110,h:20,kind:'ledge'},
+      {page:'right',x:520,y:330,w:120,h:20,kind:'ledge'},
+    ],
+    boxes:[], enemies:[{page:'right',x:700,y:H-EDGE-22,w:26,h:22,dir:-1}], goal:null },
+
+  sub2:{ label:'森の小道',  // 床から生える壁。反転して天井づたいに越える
+    platforms:[
+      {page:'left',x:140,y:330,w:120,h:20,kind:'ledge'},
+      {page:'right',x:600,y:H-EDGE-170,w:30,h:170,kind:'ledge'},
+      {page:'right',x:720,y:300,w:110,h:20,kind:'ledge'},
+    ],
+    boxes:[], enemies:[], goal:null },
+
+  sub3:{ label:'森の道',
+    platforms:[
+      {page:'left',x:80,y:380,w:90,h:20,kind:'ledge'},
+      {page:'left',x:210,y:300,w:90,h:20,kind:'ledge'},
+      {page:'left',x:340,y:210,w:100,h:20,kind:'ledge'},
+      {page:'right',x:520,y:120,w:140,h:20,kind:'ceilingLedge'},
+      {page:'right',x:720,y:320,w:120,h:20,kind:'ledge'},
+    ],
+    boxes:[], enemies:[{page:'right',x:640,y:H-EDGE-22,w:26,h:22,dir:-1}], goal:null },
+
+  sub4:{ label:'森の道',  // 床の壁→天井へ、天井の壁→床へ、のつづら折り（同じ右ページで2回反転）
+    platforms:[
+      {page:'left',x:140,y:340,w:110,h:20,kind:'ledge'},
+      {page:'right',x:540,y:H-EDGE-170,w:28,h:170,kind:'ledge'},
+      {page:'right',x:720,y:EDGE,w:28,h:170,kind:'ledge'},
+    ],
+    boxes:[], enemies:[{page:'right',x:820,y:H-EDGE-22,w:24,h:22,dir:-1}], goal:null },
+
+  cliff:{ label:'崖',  // 高くそびえる崖＝床の壁。反転して天井づたいに越える
+    platforms:[
+      {page:'left',x:160,y:350,w:120,h:20,kind:'ledge'},
+      {page:'right',x:540,y:H-EDGE-190,w:30,h:190,kind:'ledge'},
+      {page:'right',x:700,y:300,w:120,h:20,kind:'ledge'},
+    ],
+    boxes:[], enemies:[], goal:null },
+
+  glade:{ label:'森',  // ストーリーステージ用。床は広く開けて、NPCに近づきやすくする
+    platforms:[
+      {page:'left',x:120,y:360,w:120,h:20,kind:'ledge'},
+      {page:'right',x:660,y:330,w:130,h:20,kind:'ledge'},
+    ],
+    boxes:[], enemies:[], goal:null },
 };
 
 let platforms,boxes,enemies,goal;
-let clearing=false,clearT=0,goalPulse=0,hurtFlash=0,invincible=0;
+let goalPulse=0,hurtFlash=0,invincible=0;
+let stageExit=false;                 // 右の端まで歩いて抜けるとクリアになるステージか
+let flipping=false, flipT=0, flipSwapped=false; const FLIP_DUR=0.95; // ページめくり演出
+let pageNo=1;                        // 何ページ目まで進んだか（めくるたびに増える）
+// ストーリーステージ（ステージ上のキャラに話しかけて進む）
+let storyStage=false, npcs=[], activeNpc=null, storyTalking=false, prevJump=false;
+let storyExitReady=false;            // 話し終えて、右の端へ歩けば次ページへ進める状態か
+const TALK_RANGE=74;                 // この距離まで近づくと「はなす」が出る
 const flashPage={left:0,right:0};
 
-function loadStageDef(def){
+function loadStageDef(def, opt){
+  opt=opt||{};
+  stageExit=!!opt.exit;
+  storyStage=false; npcs=[]; activeNpc=null; storyTalking=false; storyExitReady=false;
   gravity={left:1,right:1};
-  platforms=edges.concat((def.platforms||[]).map(p=>({...p})));
+  // exitステージでは右ページの外壁を外し、右の端から歩いて抜けられるようにする
+  const baseEdges = stageExit ? edges.filter(e=>!(e.page==='right'&&e.kind==='wallEdge')) : edges;
+  platforms=baseEdges.concat((def.platforms||[]).map(p=>({...p})));
   boxes=(def.boxes||[]).map(b=>({x:b.x,y:b.y,w:b.w,h:b.h,vx:0,vy:0,onGround:false,squash:1}));
   enemies=(def.enemies||[]).map(e=>({page:e.page,x:e.x,y:e.y,w:e.w,h:e.h,dir:e.dir,
     minX:e.page==='left'?EDGE:SPINE,maxX:e.page==='left'?SPINE:(W-EDGE),
     vy:0,onGround:false,alive:true,squash:1,deathT:0}));
-  goal=def.goal?{...def.goal}:null;
+  goal=(def.goal && !stageExit)?{...def.goal}:null; // exitステージでは栞ゴールは使わない
   player.x=player_start.x; player.y=player_start.y; player.vx=0; player.vy=0; player.squash=1;
-  clearing=false; clearT=0; flashPage.left=0; flashPage.right=0; updateHud();
+  flashPage.left=0; flashPage.right=0; updateHud();
 }
 function pageOf(e){ return (e.x+e.w/2)<SPINE?'left':'right'; }
 function currentPage(){ return (player.x+player.w/2)<SPINE?'left':'right'; }
@@ -244,6 +307,7 @@ window.addEventListener('keyup',e=>keys[e.key]=false);
 
 function flipCurrentPage(){ const p=currentPage(); gravity[p]*=-1; flashPage[p]=1; updateHud(); }
 function onFlipKey(){
+  if(flipping) return;
   if(scene && scene.type==='qte' && qteActive){ resolveQTE(true); return; }
   if(mode==='play'||mode==='boss'){ flipCurrentPage(); }
 }
@@ -265,101 +329,121 @@ document.getElementById('btnFlip').addEventListener('pointerdown',e=>{e.preventD
 let scene=null, sceneIndex=0, mode='talk';
 
 const SCENES=[
-  { type:'talk', stage:'forest_wake', label:'序 ── 森', lines:[
-    {s:'',c:'narr',t:'森。仰向けに倒れた少年が、目を覚ます。手には一冊の本。'},
-    {s:'',c:'narr',t:'ページをめくると、ところどころ絵はあるが、大半は虫食いの白紙だった。'},
-    {s:'マリ',c:'mari',t:'あ、起きた。'},
-    {s:'',c:'narr',t:'木の陰から、十歳くらいの女の子が歩いてくる。落ち着いている。'},
-    {s:'マリ',c:'mari',t:'だいじょうぶ？　落ちてきたとき、けっこう派手だったよ。'},
-    {s:'マリ',c:'mari',t:'……うん、それ。それが大事なの。'},
-    {s:'マリ',c:'mari',t:'その本、全部埋めないと帰れないから。'},
-    {s:'マリ',c:'mari',t:'進むだけじゃダメだよ。ちゃんと見て、ちゃんと話して。そしたら勝手に書かれるから。'},
-    {s:'マリ',c:'mari',t:'飛ばしちゃダメ。一つでも空いてたら、完成しないの。'},
-    {s:'',c:'narr',t:'少年が本を差し出す。「これでいいの？」というように。'},
-    {s:'マリ',c:'mari',t:'……ううん。それは、あなたのだから。'},
-    {s:'マリ',c:'mari',t:'あっちに、赤い頭巾の子がいる。……気をつけて。'},
-    {s:'',c:'narr',t:'彼女は木の陰へ戻っていく。'},
-  ], onEnd:()=>{ fillPage('prologue','——少年は、白紙の本とともに森で目を覚ました。'); } },
+  { type:'story', stage:'glade', label:'序 ── 森',
+    intro:[
+      {s:'',c:'narr',t:'森。仰向けに倒れた少年が、目を覚ます。手には一冊の本。'},
+      {s:'',c:'narr',t:'ページをめくると、ところどころ絵はあるが、大半は虫食いの白紙だった。'},
+      {s:'',c:'narr',t:'（← → で歩く。人の近くで ▲ ボタン・画面タップ・Enter で話しかけられる）'},
+      {s:'',c:'narr',t:'木の陰に、女の子が立っている。近づいて、話しかけてみよう。'},
+    ],
+    npcs:[ { who:'mari', name:'マリ', page:'left', x:320, lines:[
+      {s:'マリ',c:'mari',t:'あ、起きた。'},
+      {s:'マリ',c:'mari',t:'だいじょうぶ？　落ちてきたとき、けっこう派手だったよ。'},
+      {s:'マリ',c:'mari',t:'……うん、それ。それが大事なの。'},
+      {s:'マリ',c:'mari',t:'その本、全部埋めないと帰れないから。'},
+      {s:'マリ',c:'mari',t:'進むだけじゃダメだよ。ちゃんと見て、ちゃんと話して。そしたら勝手に書かれるから。'},
+      {s:'マリ',c:'mari',t:'飛ばしちゃダメ。一つでも空いてたら、完成しないの。'},
+      {s:'',c:'narr',t:'少年が本を差し出す。「これでいいの？」というように。'},
+      {s:'マリ',c:'mari',t:'……ううん。それは、あなたのだから。'},
+      {s:'マリ',c:'mari',t:'あっちに、赤い頭巾の子がいる。……気をつけて。'},
+    ], onEnd:()=>{ fillPage('prologue','——少年は、白紙の本とともに森で目を覚ました。'); } } ] },
 
-  { type:'play', stage:'forest_wake', label:'序 ── 森（崖を渡る）',
-    intro:{s:'',c:'narr',t:'森を少し進むと、崖。渡れない。本を、裏返してみよう。（F／Space または「本を裏返す」）'} },
+  { type:'play', stage:'sub1', clear:'exit', label:'序 ── 森の小道 ①',
+    intro:{s:'',c:'narr',t:'右へ進もう。ページのいちばん右の端まで行くと、ページがめくれて次へ進む。'} },
 
-  { type:'talk', stage:'forest_wake', label:'序 ── 森', lines:[
-    {s:'マリ',c:'mari',t:'……そう。どこまでも落ちたりしないよ。'},
-    {s:'マリ',c:'mari',t:'ここ、本の中だから。ページより外には、いけないの。'},
-    {s:'',c:'narr',t:'心なしか、いつもより声のトーンが低い。気づく前に、彼女は木の陰へ戻っていく。'},
-  ] },
+  { type:'play', stage:'sub2', clear:'exit', label:'序 ── 森の小道 ②',
+    intro:{s:'',c:'narr',t:'道をふさぐ壁。本を裏返して重力を変え、天井づたいに越えよう。'} },
 
-  /* 【1.5】赤ずきんの家 ── 窓ごしにお使いの場面を見る */
-  { type:'talk', stage:'forest_path', label:'序 ── 赤ずきんの家', lines:[
-    {s:'',c:'narr',t:'崖を越えると、森のはずれに小さな家が見えた。煙突から、細い煙がのぼっている。'},
-    {s:'',c:'narr',t:'いつの間にか、隣にマリが立っていた。'},
-    {s:'マリ',c:'mari',t:'ここ。赤い頭巾の子が住んでる家。'},
-    {s:'マリ',c:'mari',t:'話しかける前に、まず見ておいたほうがいいよ。……こっち。'},
-    {s:'',c:'narr',t:'マリが、家の脇の窓を指さす。少年は背伸びして、そっと中をのぞいた。',act:'peek-on'},
-    {s:'',c:'narr',t:'暖かい明かりの下に、赤い頭巾の少女と、その母親らしい女の人がいる。'},
-    {s:'母親',c:'mother',t:'赤ずきん、おばあちゃんが具合を悪くしているの。お見舞いに行ってくれる？'},
-    {s:'赤ずきん',c:'hood',t:'おばあちゃんが？　うん、行く！'},
-    {s:'母親',c:'mother',t:'このガレットとバターの壺を、持っていってあげて。',act:'give-basket'},
-    {s:'母親',c:'mother',t:'おばあちゃんのお家は、風車小屋を過ぎた先の、村のいちばん端よ。道は、わかるわね？'},
-    {s:'赤ずきん',c:'hood',t:'うん、わかる。いつも通る道だもの。'},
-    {s:'母親',c:'mother',t:'森では、道からそれてはだめよ。知らない人に話しかけられても、あまり立ち止まらないこと。'},
-    {s:'赤ずきん',c:'hood',t:'はーい。いってきます！'},
-    {s:'',c:'narr',t:'少女はかごを抱えて、戸口へ駆けていく。母親は、その背中をじっと見送っていた。'},
-    {s:'母親',c:'mother',t:'……気をつけてね。'},
-    {s:'',c:'narr',t:'少年は、そっと窓から離れた。',act:'peek-off'},
-    {s:'マリ',c:'mari',t:'見えた？　これが、このお話のはじまり。'},
-    {s:'マリ',c:'mari',t:'……お母さんは、ちゃんと言ったよ。道からそれちゃだめ、って。'},
-    {s:'',c:'narr',t:'手の中の本が、かすかに温かい。虫食いのページに、一行だけ、文字が浮かんでいた。'},
-  ], onEnd:()=>{ fillPage('window','——窓の向こうで、母親が赤ずきんにお使いを頼んでいた。ガレットとバターの壺を、おばあさんのもとへ。'); } },
+  { type:'play', stage:'cliff', clear:'exit', label:'序 ── 崖',
+    intro:{s:'',c:'narr',t:'行く手をふさぐ、高い崖。本を裏返して、天井づたいに越え、右の端へ。'} },
 
-  { type:'talk', stage:'forest_path', label:'第一話 ── 森の道', lines:[
-    {s:'',c:'narr',t:'道の途中、赤い頭巾の少女が歩いている。'},
-    {s:'赤ずきん',c:'hood',t:'あら、こんにちは。'},
-    {s:'赤ずきん',c:'hood',t:'おばあちゃんに、ガレットとバターの壺を届けに行くの。一緒に来る？'},
-    {s:'赤ずきん',c:'hood',t:'うれしい。森は、一人だと少し怖いから。'},
-    {s:'',c:'narr',t:'道中、赤ずきんが足を止める。少し先の水たまりを飛び越えられずにいる。'},
-    {s:'',c:'narr',t:'少年が本を裏返してみせる。世界が反転し、水たまりの上を軽々と越えられる。'},
-    {s:'赤ずきん',c:'hood',t:'わ、わ！　何それ！？'},
-    {s:'赤ずきん',c:'hood',t:'……あれ？　なんで途中で止まるの？'},
-    {s:'赤ずきん',c:'hood',t:'すごい、すごい！　あなた、魔法使いなの？'},
-    {s:'赤ずきん',c:'hood',t:'でも、ちょっと変な魔法。ふつう、魔法ってもっと……火とか出すものじゃない？'},
-    {s:'赤ずきん',c:'hood',t:'まあいいや。役に立つし！'},
-  ], onEnd:()=>{ fillPage('meet','——赤い頭巾の少女と出会い、道連れになった。'); } },
+  /* 【1.5】赤ずきんの家 ── マリに話しかけ、窓ごしにお使いの場面を見る */
+  { type:'story', stage:'glade', label:'序 ── 赤ずきんの家',
+    intro:[
+      {s:'',c:'narr',t:'崖を越えると、森のはずれに小さな家が見えた。煙突から、細い煙がのぼっている。'},
+      {s:'',c:'narr',t:'家のそばに、マリが立っている。'},
+    ],
+    npcs:[ { who:'mari', name:'マリ', page:'right', x:640, lines:[
+      {s:'マリ',c:'mari',t:'……そう。どこまでも落ちたりしないよ。'},
+      {s:'マリ',c:'mari',t:'ここ、本の中だから。ページより外には、いけないの。'},
+      {s:'マリ',c:'mari',t:'――で、ここ。赤い頭巾の子が住んでる家。'},
+      {s:'マリ',c:'mari',t:'話しかける前に、まず見ておいたほうがいいよ。……こっち。'},
+      {s:'',c:'narr',t:'マリが、家の脇の窓を指さす。少年は背伸びして、そっと中をのぞいた。',act:'peek-on'},
+      {s:'',c:'narr',t:'暖かい明かりの下に、赤い頭巾の少女と、その母親らしい女の人がいる。'},
+      {s:'母親',c:'mother',t:'赤ずきん、おばあちゃんが具合を悪くしているの。お見舞いに行ってくれる？'},
+      {s:'赤ずきん',c:'hood',t:'おばあちゃんが？　うん、行く！'},
+      {s:'母親',c:'mother',t:'このガレットとバターの壺を、持っていってあげて。',act:'give-basket'},
+      {s:'母親',c:'mother',t:'おばあちゃんのお家は、風車小屋を過ぎた先の、村のいちばん端よ。道は、わかるわね？'},
+      {s:'赤ずきん',c:'hood',t:'うん、わかる。いつも通る道だもの。'},
+      {s:'母親',c:'mother',t:'森では、道からそれてはだめよ。知らない人に話しかけられても、あまり立ち止まらないこと。'},
+      {s:'赤ずきん',c:'hood',t:'はーい。いってきます！'},
+      {s:'',c:'narr',t:'少女はかごを抱えて、戸口へ駆けていく。母親は、その背中をじっと見送っていた。'},
+      {s:'母親',c:'mother',t:'……気をつけてね。'},
+      {s:'',c:'narr',t:'少年は、そっと窓から離れた。',act:'peek-off'},
+      {s:'マリ',c:'mari',t:'見えた？　これが、このお話のはじまり。'},
+      {s:'マリ',c:'mari',t:'……お母さんは、ちゃんと言ったよ。道からそれちゃだめ、って。'},
+      {s:'',c:'narr',t:'手の中の本が、かすかに温かい。虫食いのページに、一行だけ、文字が浮かんでいた。'},
+    ], onEnd:()=>{ fillPage('window','——窓の向こうで、母親が赤ずきんにお使いを頼んでいた。ガレットとバターの壺を、おばあさんのもとへ。'); } } ] },
 
-  { type:'talk', stage:'forest_path', label:'第一話 ── 狼', lines:[
-    {s:'',c:'narr',t:'茂みの向こうから、狼が現れる。少年に気づき、一瞬動きを止める。'},
-    {s:'狼',c:'wolf',t:'こんにちは、赤ずきんちゃん。'},
-    {s:'赤ずきん',c:'hood',t:'こんにちは。'},
-    {s:'狼',c:'wolf',t:'どこへ行くんだい？'},
-    {s:'赤ずきん',c:'hood',t:'おばあちゃんのところ。ガレットとバターの壺を届けに。'},
-    {s:'狼',c:'wolf',t:'おばあさんは、どこに住んでいるの？'},
-    {s:'赤ずきん',c:'hood',t:'この先の、風車小屋を過ぎた、村で一番端のお家よ。'},
-    {s:'狼',c:'wolf',t:'僕もそっちへ行くところなんだ。君はその道を、僕はあっちの道を。どっちが早いか競争しよう。'},
-    {s:'',c:'narr',t:'狼は、少年の視線を避けるようにして、脇道へ入っていく。'},
-    {s:'',c:'narr',t:'少年は強い違和感を覚えた。赤ずきんに、伝えるべきか。'},
-  ], choices:[
-    { label:'狼はあやしい、と赤ずきんに伝える', set:()=>{flags.warnedHood=true;}, after:[
-      {s:'赤ずきん',c:'hood',t:'……ただの競争よ？　狼さん、いつも優しいもの。'},
-      {s:'',c:'narr',t:'少年がなおも訴える。'},
-      {s:'赤ずきん',c:'hood',t:'……分かった。じゃあ、急ぎましょう。'},
-    ]},
-    { label:'何も言わない', set:()=>{flags.warnedHood=false;}, after:[
-      {s:'',c:'narr',t:'少年は口をつぐんだ。赤ずきんは、鼻歌まじりに歩いていく。'},
-    ]},
-  ], onEnd:()=>{ fillPage('wolf', flags.warnedHood
-      ?'——少年は違和感に気づき、赤ずきんに危険を告げた。'
-      :'——狼は、脇道へ消えていった。'); } },
+  { type:'play', stage:'sub3', clear:'exit', label:'第一話 ── 森の道 ①',
+    intro:{s:'',c:'narr',t:'赤ずきんのあとを追って、森の道を進む。右の端をめざそう。'} },
 
-  { type:'talk', stage:'forest_path', label:'第一話 ── 分かれ道', lines:[
-    {s:'',c:'narr',t:'森の分かれ道。狼が向かったかもしれない近道と、確実だが遅い遠回り。'},
-    {s:'赤ずきん',c:'hood',t:'近道、行く？'},
-  ], choices:[
-    { label:'近道を行く（狼を追う）', set:()=>{flags.route='shortcut';}, after:[
-      {s:'',c:'narr',t:'少年は赤ずきんと別れ、近道を駆けた。狼より先に、おばあさんの家へ。'} ]},
-    { label:'遠回りを行く（赤ずきんと一緒に）', set:()=>{flags.route='detour';}, after:[
-      {s:'',c:'narr',t:'二人は安全な遠回りを選んだ。だが、その分だけ時間がかかる。'} ]},
-  ] },
+  { type:'play', stage:'sub4', clear:'exit', label:'第一話 ── 森の道 ②' },
+
+  { type:'story', stage:'glade', label:'第一話 ── 森の道',
+    intro:{s:'',c:'narr',t:'道の先に、赤い頭巾の少女が立っている。追いついて、話しかけよう。'},
+    npcs:[ { who:'hood', name:'赤ずきん', page:'right', x:600, lines:[
+      {s:'赤ずきん',c:'hood',t:'あら、こんにちは。'},
+      {s:'赤ずきん',c:'hood',t:'おばあちゃんに、ガレットとバターの壺を届けに行くの。一緒に来る？'},
+      {s:'赤ずきん',c:'hood',t:'うれしい。森は、一人だと少し怖いから。'},
+      {s:'',c:'narr',t:'道中、赤ずきんが足を止める。少し先の水たまりを飛び越えられずにいる。'},
+      {s:'',c:'narr',t:'少年が本を裏返してみせる。世界が反転し、水たまりの上を軽々と越えられる。'},
+      {s:'赤ずきん',c:'hood',t:'わ、わ！　何それ！？'},
+      {s:'赤ずきん',c:'hood',t:'……あれ？　なんで途中で止まるの？'},
+      {s:'赤ずきん',c:'hood',t:'すごい、すごい！　あなた、魔法使いなの？'},
+      {s:'赤ずきん',c:'hood',t:'でも、ちょっと変な魔法。ふつう、魔法ってもっと……火とか出すものじゃない？'},
+      {s:'赤ずきん',c:'hood',t:'まあいいや。役に立つし！'},
+    ], onEnd:()=>{ fillPage('meet','——赤い頭巾の少女と出会い、道連れになった。'); } } ] },
+
+  { type:'story', stage:'glade', label:'第一話 ── 狼',
+    intro:{s:'',c:'narr',t:'茂みの向こうから、狼が現れた。赤ずきんのそばに立っている。狼に話しかけてみよう。'},
+    npcs:[
+      { who:'hood', name:'赤ずきん', page:'right', x:560 },  // その場にいる（会話の相手は狼）
+      { who:'wolf', name:'狼', page:'right', x:700, lines:[
+        {s:'狼',c:'wolf',t:'こんにちは、赤ずきんちゃん。'},
+        {s:'赤ずきん',c:'hood',t:'こんにちは。'},
+        {s:'狼',c:'wolf',t:'どこへ行くんだい？'},
+        {s:'赤ずきん',c:'hood',t:'おばあちゃんのところ。ガレットとバターの壺を届けに。'},
+        {s:'狼',c:'wolf',t:'おばあさんは、どこに住んでいるの？'},
+        {s:'赤ずきん',c:'hood',t:'この先の、風車小屋を過ぎた、村で一番端のお家よ。'},
+        {s:'狼',c:'wolf',t:'僕もそっちへ行くところなんだ。君はその道を、僕はあっちの道を。どっちが早いか競争しよう。'},
+        {s:'',c:'narr',t:'狼は、少年の視線を避けるようにして、脇道へ入っていく。'},
+        {s:'',c:'narr',t:'少年は強い違和感を覚えた。赤ずきんに、伝えるべきか。'},
+      ], choices:[
+        { label:'狼はあやしい、と赤ずきんに伝える', set:()=>{flags.warnedHood=true;}, after:[
+          {s:'赤ずきん',c:'hood',t:'……ただの競争よ？　狼さん、いつも優しいもの。'},
+          {s:'',c:'narr',t:'少年がなおも訴える。'},
+          {s:'赤ずきん',c:'hood',t:'……分かった。じゃあ、急ぎましょう。'},
+        ]},
+        { label:'何も言わない', set:()=>{flags.warnedHood=false;}, after:[
+          {s:'',c:'narr',t:'少年は口をつぐんだ。赤ずきんは、鼻歌まじりに歩いていく。'},
+        ]},
+      ], onEnd:()=>{ fillPage('wolf', flags.warnedHood
+          ?'——少年は違和感に気づき、赤ずきんに危険を告げた。'
+          :'——狼は、脇道へ消えていった。'); } },
+    ] },
+
+  { type:'story', stage:'glade', label:'第一話 ── 分かれ道',
+    intro:{s:'',c:'narr',t:'森の分かれ道。赤ずきんが、少年を待っている。'},
+    npcs:[ { who:'hood', name:'赤ずきん', page:'right', x:620, lines:[
+      {s:'',c:'narr',t:'近道は、狼が向かったかもしれない。遠回りは、確実だが遅い。'},
+      {s:'赤ずきん',c:'hood',t:'近道、行く？'},
+    ], choices:[
+      { label:'近道を行く（狼を追う）', set:()=>{flags.route='shortcut';}, after:[
+        {s:'',c:'narr',t:'少年は赤ずきんと別れ、近道を駆けた。狼より先に、おばあさんの家へ。'} ]},
+      { label:'遠回りを行く（赤ずきんと一緒に）', set:()=>{flags.route='detour';}, after:[
+        {s:'',c:'narr',t:'二人は安全な遠回りを選んだ。だが、その分だけ時間がかかる。'} ]},
+    ] } ] },
 
   { type:'talk', stage:'wolf_boss', label:'第一話 ── おばあさんの家', dynamic:'arriveHouse' },
 
@@ -383,9 +467,17 @@ function startScene(idx){
     document.getElementById('hudStage').textContent=scene.label||'';
     beginDialogue(scene.lines, scene.choices, ()=>{ if(scene.onEnd) scene.onEnd(); advanceScene(); });
   } else if(scene.type==='play'){
-    loadStageDef(STAGE_DEFS[scene.stage]); mode='play';
-    document.getElementById('hudStage').textContent=scene.label||'';
-    if(scene.intro){ beginDialogue([scene.intro],null,()=>{ hideDialogue(); mode='play'; }); }
+    loadStageDef(STAGE_DEFS[scene.stage], {exit: scene.clear==='exit'});
+    document.getElementById('hudStage').textContent=(scene.label||'')+'　·　p.'+pageNo;
+    if(scene.intro){ mode='idle'; beginDialogue([scene.intro],null,()=>{ hideDialogue(); mode='play'; }); }
+    else { mode='play'; }
+  } else if(scene.type==='story'){
+    loadStageDef(STAGE_DEFS[scene.stage||'glade'], {exit:false});
+    storyStage=true; setupNpcs(scene.npcs);
+    document.getElementById('hudStage').textContent=(scene.label||'')+'　·　p.'+pageNo;
+    const intro = scene.intro ? (Array.isArray(scene.intro)?scene.intro:[scene.intro]) : null;
+    if(intro){ mode='idle'; beginDialogue(intro,null,()=>{ hideDialogue(); mode='play'; }); }
+    else { mode='play'; }
   } else if(scene.type==='boss'){
     loadStageDef(STAGE_DEFS['wolf_boss']); spawnWolf(scene.advantaged); mode='idle';
     document.getElementById('hudStage').textContent='第一話 ── 狼との戦い';
@@ -395,6 +487,37 @@ function startScene(idx){
 }
 function advanceScene(){ startScene(sceneIndex+1); }
 function injectSceneAfterCurrent(sc){ SCENES.splice(sceneIndex+1,0,sc); }
+
+// ステージ上のキャラ（NPC）を配置する
+function setupNpcs(defs){
+  npcs=(defs||[]).map(d=>({
+    who:d.who, name:d.name||'', page:d.page||'right', x:d.x, w:d.w||32, h:d.h||40,
+    lines:d.lines||null, choices:d.choices||null, onEnd:d.onEnd||null,
+    talkable:!!(d.lines), talked:false
+  }));
+  activeNpc=null; storyTalking=false;
+}
+// 近くのNPCに話しかける → 会話 → 終わったらページめくりで次へ
+function tryTalk(){
+  if(!storyStage || storyTalking || flipping) return;
+  const n=activeNpc; if(!n || !n.lines) return;
+  storyTalking=true; player.vx=0;
+  beginDialogue(n.lines, n.choices, ()=>{
+    storyTalking=false; hideDialogue();
+    if(n.onEnd) n.onEnd();
+    n.talked=true;
+    // 自動ではめくらない。右ページの右端まで自分で歩いたら次ページへ。
+    stageExit=true; storyExitReady=true;
+    platforms = platforms.filter(p=>!(p.page==='right'&&p.kind==='wallEdge'));
+  });
+}
+
+// 右の端まで歩き抜ける／栞に触れると、ページめくり演出を挟んで次のステージへ
+function startPageFlip(){
+  if(flipping) return;
+  flipping=true; flipT=0; flipSwapped=false;
+  player.vx=0; player.vy=0;
+}
 
 function setupArriveHouse(){
   loadStageDef(STAGE_DEFS['wolf_boss']); mode='idle';
@@ -607,13 +730,22 @@ function tryAdvanceDialogue(){
   if(typing){ dlgLine.textContent=typeTarget; typing=false; return true; }
   nextLine(); return true;
 }
-canvas.addEventListener('pointerdown',e=>{ if(dlg.classList.contains('show')){ e.preventDefault(); tryAdvanceDialogue(); } });
+canvas.addEventListener('pointerdown',e=>{
+  if(dlg.classList.contains('show')){ e.preventDefault(); tryAdvanceDialogue(); return; }
+  // 会話していないとき、近くにNPCがいれば画面タップで話しかけられる
+  if(activeNpc && !storyTalking && !flipping){ e.preventDefault(); tryTalk(); }
+});
 // 吹き出し（会話ウィンドウ）自体のタップでも進める。選択肢ボタンは除外。
 dlg.addEventListener('pointerdown',e=>{
   if(e.target.closest('.choice')) return;
   e.preventDefault(); tryAdvanceDialogue();
 });
-window.addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key==='z'||e.key==='Z') && dlg.classList.contains('show')){ e.preventDefault(); tryAdvanceDialogue(); } });
+window.addEventListener('keydown',e=>{
+  if((e.key==='Enter'||e.key==='z'||e.key==='Z')){
+    if(dlg.classList.contains('show')){ e.preventDefault(); tryAdvanceDialogue(); }
+    else if(activeNpc && !storyTalking && !flipping){ e.preventDefault(); tryTalk(); }
+  }
+});
 
 /* Physics */
 function rectsOverlap(a,b){ return a.x<b.x+b.w && a.x+a.w>b.x && a.y<b.y+b.h && a.y+a.h>b.y; }
@@ -629,10 +761,28 @@ function update(dt){
   hurtFlash=Math.max(0,hurtFlash-dt*2.5);
   invincible=Math.max(0,invincible-dt);
 
+  // ページめくり中は操作を止める。折り返し（半分）で次のステージを読み込む
+  if(flipping){
+    flipT+=dt;
+    if(!flipSwapped && flipT>=FLIP_DUR*0.5){ flipSwapped=true; pageNo++; advanceScene(); }
+    if(flipT>=FLIP_DUR){ flipping=false; }
+    return;
+  }
+
   if(mode==='qte'){ updateQTE(dt); return; }
   if(mode!=='play'&&mode!=='boss') return;
+  if(storyTalking) return; // 会話中は動かさない
 
-  if(clearing){ clearT+=dt; if(clearT>1.0){ clearing=false; advanceScene(); } return; }
+  // ストーリーステージ：近くに話しかけられるNPCがいるか探す
+  if(storyStage){
+    activeNpc=null; let best=1e9;
+    const pcx=player.x+player.w/2, pcy=player.y+player.h/2;
+    for(const n of npcs){ if(!n.talkable||n.talked) continue;
+      const nx=n.x+n.w/2, ny=(H-EDGE)-n.h/2;
+      const d=Math.hypot(pcx-nx, pcy-ny);
+      if(d<TALK_RANGE && d<best){ best=d; activeNpc=n; }
+    }
+  } else activeNpc=null;
 
   const page=currentPage(); const g=gravity[page];
   const left=keys['ArrowLeft']||keys['a']||keys['A'];
@@ -644,7 +794,9 @@ function update(dt){
 
   player.vy+=GRAVITY*g*dt;
   const jump=keys['ArrowUp']||keys['w']||keys['W'];
-  if(jump&&player.onGround){ player.vy=-JUMP_SPEED*g; player.onGround=false; }
+  const jumpEdge = jump && !prevJump; prevJump=jump;
+  if(activeNpc && jumpEdge){ tryTalk(); }          // NPCの近くでは ▲ ＝「はなす」（ジャンプの代わり）
+  else if(jump&&player.onGround){ player.vy=-JUMP_SPEED*g; player.onGround=false; }
 
   for(const box of boxes){
     const bg=gravity[pageOf(box)]; box.vy+=GRAVITY*bg*dt;
@@ -688,7 +840,9 @@ function update(dt){
 
   if(mode==='boss'&&wolf) updateWolf(dt);
 
-  if(goal&&rectsOverlap(player,goal)){ clearing=true; clearT=0; }
+  if(goal&&rectsOverlap(player,goal)){ startPageFlip(); }
+  // 右ページの右端まで歩き抜けたらクリア（ページめくりへ）
+  if(mode==='play'&&stageExit&&!flipping&&(player.x+player.w/2)>=W-8){ startPageFlip(); }
 
   player.x=Math.max(-40,Math.min(W+40,player.x));
   player.y=Math.max(-400,Math.min(H+400,player.y));
@@ -741,6 +895,53 @@ function updateWolf(dt){
   resolveBodyCollisions(wolf,'y',pagePlatforms(wolf.page));
   wolf.squash+=(1-wolf.squash)*Math.min(1,dt*8);
   if(invincible<=0&&wolf.alive&&wolf.stun<=0&&rectsOverlap(player,wolf)){ respawnPlayer(); }
+}
+
+/* ステージ上のキャラ（NPC）を描く */
+function drawNpc(n){
+  const footY=H-EDGE;
+  const bob=Math.sin(goalPulse*2.2 + n.x*0.05)*2.2;
+  const cx=n.x+n.w/2;
+  const face=(player.x<n.x)?-1:1;
+  ctx.save();
+  if(n.who==='wolf'){
+    const bw=n.w+8, bh=n.h*0.62, cy=footY-bh/2-6+bob;
+    ctx.translate(cx,cy); ctx.scale(face,1);
+    ctx.fillStyle='#3a2f2a';
+    ctx.fillRect(-bw/2+4,bh/2-2,6,10); ctx.fillRect(bw/2-10,bh/2-2,6,10); // 脚
+    ctx.beginPath(); roundRectPath(-bw/2,-bh/2,bw,bh,8); ctx.fill();        // 胴
+    ctx.beginPath(); ctx.moveTo(bw/2-12,-bh/2); ctx.lineTo(bw/2-6,-bh/2-11); ctx.lineTo(bw/2,-bh/2); ctx.closePath(); ctx.fill(); // 耳
+    ctx.beginPath(); roundRectPath(bw/2-8,-bh*0.12,bw*0.38,bh*0.34,4); ctx.fillStyle='#2c231f'; ctx.fill();  // 鼻面
+    ctx.fillStyle='#c9503f'; ctx.beginPath(); ctx.arc(bw/2-12,-bh*0.14,2.6,0,Math.PI*2); ctx.fill();         // 目
+  } else {
+    const hw=n.w/2, hh=n.h/2, cy=footY-hh+bob;
+    ctx.translate(cx,cy);
+    const col=(n.who==='mari')?'#4a4e6d':'#2b2e4a';
+    ctx.beginPath(); roundRectPath(-hw,-hh,n.w,n.h,9); ctx.fillStyle=col; ctx.fill();
+    if(n.who==='hood'){                                   // 赤い頭巾＋ケープ
+      ctx.fillStyle='#b8423f';
+      ctx.beginPath(); ctx.moveTo(-hw,-hh*0.1); ctx.lineTo(hw,-hh*0.1); ctx.lineTo(hw*0.7,hh*0.9); ctx.lineTo(-hw*0.7,hh*0.9); ctx.closePath(); ctx.globalAlpha=0.92; ctx.fill(); ctx.globalAlpha=1;
+      ctx.beginPath(); ctx.arc(0,-hh,hw*0.95,Math.PI,0); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-hw*0.9*face,-hh*1.0); ctx.lineTo(-hw*1.7*face,-hh*0.7); ctx.lineTo(-hw*0.9*face,-hh*0.55); ctx.closePath(); ctx.fill(); // たれた頭巾
+    } else if(n.who==='mari'){                            // 髪のとがり
+      ctx.fillStyle='#a9b0d6'; ctx.beginPath(); ctx.moveTo(-4,-hh); ctx.lineTo(0,-hh-9); ctx.lineTo(4,-hh); ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle='#e8dcc0'; ctx.beginPath();             // 目
+    ctx.arc(-5*face,-hh*0.35,2.4,0,Math.PI*2); ctx.arc(5*face,-hh*0.35,2.4,0,Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+
+  // 名札
+  if(n.name){ ctx.save(); ctx.font="600 11px 'Zen Old Mincho',serif"; ctx.textAlign='center';
+    ctx.fillStyle='rgba(74,70,60,0.85)'; ctx.fillText(n.name, cx, footY-n.h-12+bob); ctx.restore(); }
+  // 「はなす」プロンプト（近くにいるとき）
+  if(n===activeNpc && !storyTalking){
+    const p=0.5+0.5*Math.sin(goalPulse*5);
+    ctx.save(); ctx.textAlign='center'; ctx.globalAlpha=0.65+0.35*p;
+    ctx.fillStyle='#b08d57'; ctx.font="700 13px 'Zen Old Mincho',serif";
+    ctx.fillText('▲ はなす', cx, footY-n.h-28+bob);
+    ctx.restore();
+  }
 }
 
 /* Render */
@@ -843,16 +1044,59 @@ function render(){
   drawGoal();
   for(const box of boxes) drawBox(box);
   for(const en of enemies) drawEnemy(en);
+  if(storyStage) for(const n of npcs) drawNpc(n);
+  // 話し終えたら、右の端へ進むよう促す
+  if(storyStage && storyExitReady && !flipping && !storyTalking){
+    const p=0.5+0.5*Math.sin(goalPulse*4);
+    ctx.save(); ctx.textAlign='right'; ctx.globalAlpha=0.55+0.45*p;
+    ctx.fillStyle='#b08d57'; ctx.font="700 16px 'Zen Old Mincho',serif";
+    ctx.fillText('右の端へ →', W-26, H/2);
+    ctx.restore();
+  }
   if(mode==='boss') drawWolf();
   drawPlayer();
   if(hurtFlash>0){ ctx.fillStyle=`rgba(139,20,20,${hurtFlash*0.35})`; ctx.fillRect(0,0,W,H); }
-  if(clearing){
-    const t=Math.min(1,clearT/1.0); const fade=t<0.5?(t/0.5):(1-(t-0.5)/0.5);
-    ctx.save(); ctx.fillStyle=`rgba(232,220,192,${0.55*fade})`; ctx.fillRect(0,0,W,H);
-    ctx.fillStyle=`rgba(43,46,74,${0.9*fade})`; ctx.font="600 24px 'Zen Old Mincho', serif";
-    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('ページをめくっています…',W/2,H/2); ctx.restore();
-  }
+  if(flipping) drawFlip();
   drawPeekView(); // 窓ごしの映像（act:'peek-on' の間だけ表示される）
+}
+
+/* ページめくり演出：背（スパイン）を軸にして、紙が右→左へめくれていく */
+function drawFlip(){
+  const p=Math.min(1,flipT/FLIP_DUR);
+  const ang=p*Math.PI;               // 0 → π
+  const c=Math.cos(ang);             // 1 → -1
+  const half=SPINE*Math.abs(c);      // 投影されたページ幅
+  const dim=Math.sin(p*Math.PI);     // 0→1→0（中央で最大：切り替えを隠す）
+
+  ctx.save();
+  // 全体を少し暗くして、折り返しでのステージ切り替えを目立たなくする
+  ctx.fillStyle=`rgba(28,22,14,${0.30*dim})`; ctx.fillRect(0,0,W,H);
+
+  // めくれている紙：前半は右半分を、後半は左半分を覆う
+  const edgeX = (c>=0) ? SPINE+half : SPINE-half;
+  const bend = 14*(1-Math.abs(c));   // 端が立つほど丸みを強く
+  ctx.beginPath();
+  ctx.moveTo(SPINE,EDGE);
+  ctx.bezierCurveTo((SPINE+edgeX)/2, EDGE-bend, (SPINE+edgeX)/2, EDGE-bend, edgeX, EDGE+bend*0.6);
+  ctx.lineTo(edgeX,H-EDGE-bend*0.6);
+  ctx.bezierCurveTo((SPINE+edgeX)/2, H-EDGE+bend, (SPINE+edgeX)/2, H-EDGE+bend, SPINE, H-EDGE);
+  ctx.closePath();
+
+  const grd=ctx.createLinearGradient(SPINE,0,edgeX,0);
+  grd.addColorStop(0,'#d7c69c'); grd.addColorStop(0.5,'#efe4c8'); grd.addColorStop(1,'#cbb88f');
+  ctx.fillStyle=grd; ctx.fill();
+  // 背側に落ちる陰
+  const sh=ctx.createLinearGradient(SPINE,0,edgeX,0);
+  sh.addColorStop(0,'rgba(58,45,30,0.30)'); sh.addColorStop(0.35,'rgba(58,45,30,0)');
+  ctx.fillStyle=sh; ctx.fill();
+  // めくれた端のハイライト
+  ctx.strokeStyle='rgba(255,250,235,0.55)'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(edgeX,EDGE+bend*0.6); ctx.lineTo(edgeX,H-EDGE-bend*0.6); ctx.stroke();
+
+  ctx.globalAlpha=dim; ctx.fillStyle='rgba(74,70,60,0.95)';
+  ctx.font="600 20px 'Zen Old Mincho', serif"; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('ページをめくる…', W/2, H-38);
+  ctx.restore();
 }
 
 /* ---------- 窓ごしの映像（赤ずきんの家をのぞく） ---------- */
