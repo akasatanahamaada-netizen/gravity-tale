@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gravity Tale — 第一話「赤い頭巾」</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Zen+Old+Mincho:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --parchment:#e8dcc0; --parchment-dark:#d9c9a3; --ink:#2b2e4a; --ink-soft:#4a4e6d;
+    --gold:#b08d57; --moss:#57644a; --rose:#8b5e63; --spine:#3a3226;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; min-height:100%;
+    background: radial-gradient(ellipse at center, #3a3226 0%, #201b14 100%);
+    display:flex; align-items:flex-start; justify-content:center;
+    font-family:'Zen Old Mincho', serif; overflow-y:auto; overflow-x:hidden; color:#e8dcc0;
+  }
+  .stage{ display:flex; flex-direction:column; align-items:center; gap:12px; width:100%; max-width:940px; padding:16px 8px 24px 8px; }
+  h1{ font-family:'Cormorant Garamond',serif; font-weight:700; letter-spacing:0.14em; color:#e8dcc0; font-size:24px; margin:0; text-align:center; }
+  .sub{ color:#b7ab8a; font-size:12px; letter-spacing:0.05em; margin-top:-6px; text-align:center; }
+  .book-frame{
+    position:relative; border-radius:6px; padding:14px;
+    background:linear-gradient(180deg,#4a3f2c,#2b2418);
+    box-shadow: 0 30px 60px rgba(0,0,0,0.55), 0 2px 0 rgba(255,255,255,0.04) inset;
+    width:100%; max-width:912px;
+  }
+  .hud{ display:flex; justify-content:space-between; width:100%; padding:6px 4px 0 4px; font-size:12px; color:#cbb98f; letter-spacing:0.05em; }
+  #hudStage{ color:#e8dcc0; font-weight:700; letter-spacing:0.06em; }
+  .canvas-wrap{ position:relative; width:100%; }
+  canvas#game{ display:block; border-radius:3px; box-shadow:0 0 0 1px rgba(0,0,0,0.4); width:100%; height:auto; aspect-ratio:900/480; }
+
+  .dialogue{
+    position:absolute; left:0; right:0; bottom:0; padding:14px 16px 16px 16px;
+    background:linear-gradient(180deg, rgba(20,17,12,0) 0%, rgba(20,17,12,0.82) 30%, rgba(20,17,12,0.94) 100%);
+    display:none; flex-direction:column; gap:8px; border-radius:0 0 3px 3px;
+  }
+  .dialogue.show{ display:flex; }
+  .speaker{ font-family:'Cormorant Garamond',serif; font-size:15px; letter-spacing:0.1em; color:#d9b877; font-weight:700; }
+  .speaker.mari{ color:#a9b0d6; } .speaker.wolf{ color:#c9503f; } .speaker.hood{ color:#d98a90; }
+  .speaker.granny{ color:#c8b78f; } .speaker.narr{ color:#8a8266; font-style:italic; }
+  .speaker.mother{ color:#d9a77a; }
+  .dline{ font-size:16px; line-height:1.7; color:#efe6cf; min-height:1.7em; letter-spacing:0.02em; }
+  .dhint{ font-size:11px; color:#8a8266; text-align:right; letter-spacing:0.08em; }
+  .choices{ display:flex; flex-direction:column; gap:8px; margin-top:4px; }
+  .choice{
+    background:rgba(176,141,87,0.12); border:1px solid rgba(176,141,87,0.5); border-radius:8px;
+    padding:11px 14px; font-size:15px; color:#efe6cf; cursor:pointer; text-align:left;
+    font-family:'Zen Old Mincho',serif; transition:background .15s;
+  }
+  .choice:hover,.choice:active{ background:rgba(176,141,87,0.28); }
+
+  .qte{ position:absolute; inset:0; display:none; align-items:center; justify-content:center; flex-direction:column; gap:10px; background:rgba(20,17,12,0.35); }
+  .qte.show{ display:flex; }
+  .qte .big{ font-size:22px; color:#e8dcc0; letter-spacing:0.1em; text-shadow:0 2px 8px #000; }
+  .qte .flipnow{ background:rgba(201,80,63,0.25); border:2px solid #c9503f; color:#fff; padding:14px 26px; border-radius:30px; font-size:18px; letter-spacing:0.08em; animation:pulse .5s infinite alternate; }
+  @keyframes pulse{ from{transform:scale(1);} to{transform:scale(1.08);} }
+
+  .controls{ display:flex; gap:16px; margin-top:6px; color:#a99a76; font-size:12px; letter-spacing:0.03em; flex-wrap:wrap; justify-content:center; }
+  .controls b{ color:#e8dcc0; }
+  .touch-ui{ display:flex; justify-content:space-between; width:100%; margin-top:8px; flex-wrap:wrap; gap:10px; }
+  .touch-group{ display:flex; gap:8px; }
+  .btn{ width:52px; height:52px; border-radius:50%; border:1px solid rgba(232,220,192,0.35); background:rgba(232,220,192,0.08); color:#e8dcc0; font-size:20px; display:flex; align-items:center; justify-content:center; user-select:none; -webkit-user-select:none; touch-action:none; }
+  .btn:active{ background:rgba(232,220,192,0.25); }
+  .btn.flip{ width:auto; height:52px; padding:0 16px; border-radius:26px; background:rgba(176,141,87,0.18); border-color:rgba(176,141,87,0.6); font-size:12px; line-height:1.15; text-align:center; letter-spacing:0.04em; }
+
+  .bookbtn{ margin-top:4px; font-size:12px; color:#cbb98f; letter-spacing:0.06em; background:none; border:1px solid rgba(203,185,143,0.4); border-radius:16px; padding:6px 14px; cursor:pointer; font-family:'Zen Old Mincho',serif; }
+  .modal{ position:fixed; inset:0; background:rgba(10,8,5,0.86); display:none; align-items:center; justify-content:center; z-index:50; padding:20px; }
+  .modal.show{ display:flex; }
+  .book-inner{ background:linear-gradient(180deg,#efe4c8,#e2d3ab); color:#2b2e4a; max-width:560px; width:100%; border-radius:6px; padding:26px 28px; box-shadow:0 20px 60px rgba(0,0,0,0.6); font-size:15px; line-height:1.8; max-height:80vh; overflow:auto; }
+  .book-inner h2{ font-family:'Cormorant Garamond',serif; letter-spacing:0.12em; margin:0 0 14px; font-size:22px; }
+  .page-entry{ border-bottom:1px dashed rgba(58,50,38,0.35); padding:10px 0; }
+  .page-entry .title{ font-weight:700; color:#3a2f2a; }
+  .page-entry .body{ color:#4a4e6d; white-space:pre-line; }
+  .page-entry.empty .body{ color:#a89a6f; font-style:italic; }
+  .wormhole{ letter-spacing:2px; color:#b0a074; }
+  .modal .close{ margin-top:16px; }
+  .modal .close button{ background:#3a2f2a; color:#e8dcc0; border:none; border-radius:6px; padding:9px 18px; cursor:pointer; font-family:'Zen Old Mincho',serif; font-size:14px; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div>
+    <h1>GRAVITY TALE</h1>
+    <div class="sub">第一話「赤い頭巾」 ── 本を裏返すと、世界の重力が反転する</div>
+  </div>
+
+  <div class="book-frame">
+    <div class="hud">
+      <span id="hudLeft">← 左ページ</span>
+      <span id="hudStage">序 ── 森</span>
+      <span id="hudRight">右ページ →</span>
+    </div>
+
+    <div class="canvas-wrap">
+      <canvas id="game" width="900" height="480"></canvas>
+      <div class="qte" id="qte">
+        <div class="big" id="qteBig">！</div>
+        <div class="flipnow" id="qteBtn">今だ！ 本を裏返せ</div>
+      </div>
+      <div class="dialogue" id="dlg">
+        <div class="speaker" id="dlgSpeaker">　</div>
+        <div class="dline" id="dlgLine">　</div>
+        <div class="choices" id="dlgChoices"></div>
+        <div class="dhint" id="dlgHint">▶ タップ／クリックで進む</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <span><b>← →</b> 移動</span>
+      <span><b>↑ / W</b> ジャンプ</span>
+      <span><b>F / Space</b> 重力反転</span>
+      <span>キャラに近づいて<b>▲</b>で話す</span>
+      <span>右ページの<b>右端</b>まで進むとページがめくれる</span>
+    </div>
+
+    <div class="touch-ui">
+      <div class="touch-group">
+        <div class="btn" id="btnLeft">◀</div>
+        <div class="btn" id="btnRight">▶</div>
+      </div>
+      <div class="btn flip" id="btnFlip">本を<br>裏返す</div>
+      <div class="touch-group">
+        <div class="btn" id="btnJump">▲</div>
+      </div>
+    </div>
+
+    <div style="text-align:center;">
+      <button class="bookbtn" id="openBook">📖 本を開く（ページを読み返す）</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="bookModal">
+  <div class="book-inner">
+    <h2>『Gravity Tale』</h2>
+    <div id="pageList"></div>
+    <div class="close"><button id="closeBook">閉じる</button></div>
+  </div>
+</div>
+
+<!-- ====================================================================== -->
+<!-- スクリプトの読み込み順：                                                -->
+<!--   1) engine.js   … 共通エンジン（GT を作る。最初に読む）                 -->
+<!--   2) stages/*.js  … 各ステージ（順不同でOK。並び順は playlist が決める）   -->
+<!--   3) playlist.js  … 並び順・ページ・初期状態（最後に読む）               -->
+<!-- ステージを足したら、stages/ の行をここに1行コピーして増やすだけ。        -->
+<!-- ====================================================================== -->
+<script src="engine.js"></script>
+
+<script src="stages/00_opening.js"></script>
+<script src="stages/01_komichi1.js"></script>
+<script src="stages/02_komichi2.js"></script>
+<script src="stages/03_cliff.js"></script>
+<script src="stages/04_house_peek.js"></script>
+<script src="stages/05_path1.js"></script>
+<script src="stages/06_path2.js"></script>
+<script src="stages/07_meet_hood.js"></script>
+<script src="stages/08_wolf_talk.js"></script>
+<script src="stages/09_crossroads.js"></script>
+<script src="stages/10_grannys_house.js"></script>
+
+<script src="playlist.js"></script>
+</body>
+</html>
