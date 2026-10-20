@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gravity Tale ── ステージエディタ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Zen+Old+Mincho:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{ --gold:#b08d57; }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;background:radial-gradient(ellipse at center,#3a3226,#1b160f);
+    font-family:'Zen Old Mincho',serif;color:#e8dcc0;}
+  .app{display:flex;flex-direction:column;height:100vh;}
+
+  header{display:flex;align-items:center;gap:14px;padding:8px 14px;background:linear-gradient(180deg,#4a3f2c,#2b2418);
+    box-shadow:0 2px 10px rgba(0,0,0,.5);flex-wrap:wrap;}
+  header h1{font-family:'Cormorant Garamond',serif;font-size:19px;letter-spacing:.12em;margin:0;}
+  header .sub{font-size:11px;color:#b7ab8a;}
+  .spacer{flex:1;}
+  .bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+  button,select,input[type=text]{font-family:'Zen Old Mincho',serif;}
+  .btn{background:rgba(232,220,192,.08);border:1px solid rgba(232,220,192,.3);color:#e8dcc0;
+    border-radius:8px;padding:7px 11px;font-size:13px;cursor:pointer;transition:background .12s;}
+  .btn:hover{background:rgba(232,220,192,.2);}
+  .btn.go{background:rgba(176,141,87,.25);border-color:rgba(176,141,87,.7);}
+  .btn.danger{background:rgba(201,80,63,.18);border-color:rgba(201,80,63,.6);}
+
+  main{flex:1;display:flex;min-height:0;}
+  .tools{width:126px;background:#2b2418;padding:10px 8px;display:flex;flex-direction:column;gap:5px;
+    border-right:1px solid rgba(0,0,0,.4);overflow:auto;}
+  .tools .lbl{font-size:10px;color:#8a8266;letter-spacing:.1em;margin:7px 2px 1px;}
+  .tool{display:flex;align-items:center;gap:8px;background:rgba(232,220,192,.05);border:1px solid rgba(232,220,192,.18);
+    border-radius:8px;padding:8px;font-size:12px;cursor:pointer;color:#e8dcc0;text-align:left;}
+  .tool:hover{background:rgba(232,220,192,.14);}
+  .tool.active{background:rgba(176,141,87,.3);border-color:var(--gold);}
+  .swatch{width:16px;height:16px;border-radius:3px;flex:none;border:1px solid rgba(0,0,0,.3);}
+  .mini{font-size:10px;color:#8a8266;line-height:1.6;margin-top:4px;}
+
+  .canvas-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px;min-width:0;overflow:auto;}
+  .canvas-wrap{position:relative;width:100%;max-width:900px;}
+  canvas{display:block;width:100%;height:auto;aspect-ratio:900/480;border-radius:4px;
+    box-shadow:0 20px 50px rgba(0,0,0,.5),0 0 0 1px rgba(0,0,0,.5);cursor:crosshair;touch-action:none;}
+  .hint{margin-top:8px;font-size:11px;color:#a99a76;text-align:center;line-height:1.7;}
+  .hint b{color:#e8dcc0;}
+
+  .props{width:262px;background:#2b2418;padding:12px;overflow:auto;border-left:1px solid rgba(0,0,0,.4);}
+  .props h3{font-family:'Cormorant Garamond',serif;font-size:14px;letter-spacing:.1em;margin:4px 0 8px;color:#d9b877;
+    border-bottom:1px solid rgba(176,141,87,.3);padding-bottom:5px;}
+  .row{display:flex;align-items:center;gap:6px;margin:6px 0;font-size:12px;}
+  .row label{width:74px;color:#b7ab8a;flex:none;}
+  .row input,.row select{flex:1;background:rgba(0,0,0,.25);border:1px solid rgba(232,220,192,.25);
+    color:#efe6cf;border-radius:6px;padding:6px 7px;font-size:12px;min-width:0;}
+  .grid2{display:flex;gap:6px;}
+  .grid2 .cell{flex:1;display:flex;align-items:center;gap:4px;}
+  .grid2 .cell span{color:#8a8266;font-size:11px;}
+  .grid2 .cell input{width:100%;background:rgba(0,0,0,.25);border:1px solid rgba(232,220,192,.25);
+    color:#efe6cf;border-radius:6px;padding:6px;font-size:12px;}
+  .empty-note{color:#8a8266;font-size:12px;font-style:italic;line-height:1.7;padding:6px 2px;}
+  .pagechip{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;background:rgba(176,141,87,.2);border:1px solid rgba(176,141,87,.5);}
+  .fullbtn{width:100%;margin:6px 0;}
+  textarea.note{width:100%;background:rgba(0,0,0,.25);border:1px solid rgba(232,220,192,.25);color:#efe6cf;
+    border-radius:6px;padding:7px;font-size:12px;font-family:'Zen Old Mincho',serif;min-height:52px;resize:vertical;}
+
+  /* モーダル共通 */
+  .modal{position:fixed;inset:0;background:rgba(10,8,5,.86);display:none;align-items:center;justify-content:center;z-index:50;padding:18px;}
+  .modal.show{display:flex;}
+  .sheet{background:linear-gradient(180deg,#efe4c8,#e2d3ab);color:#2b2e4a;max-width:760px;width:100%;
+    border-radius:8px;padding:20px 22px;box-shadow:0 20px 60px rgba(0,0,0,.6);max-height:86vh;display:flex;flex-direction:column;}
+  .sheet h2{font-family:'Cormorant Garamond',serif;letter-spacing:.1em;margin:0 0 6px;font-size:20px;}
+  .sheet p{font-size:13px;color:#4a4e6d;line-height:1.7;margin:2px 0 10px;}
+  .sheet textarea.code{flex:1;min-height:300px;background:#2b2418;color:#e8dcc0;border:none;border-radius:6px;
+    padding:14px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;line-height:1.6;white-space:pre;overflow:auto;}
+  .sheet .foot{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center;}
+  .sheet .foot .tip{flex:1;font-size:11px;color:#6a5e42;line-height:1.6;min-width:160px;}
+  .steps{font-size:12px;color:#4a4e6d;background:rgba(176,141,87,.14);border:1px solid rgba(176,141,87,.4);
+    border-radius:6px;padding:8px 12px;margin-bottom:10px;line-height:1.8;}
+  .steps code{background:rgba(43,36,24,.12);padding:1px 5px;border-radius:4px;}
+  .warn{background:rgba(201,80,63,.14);border:1px solid rgba(201,80,63,.5);color:#8a3327;border-radius:6px;padding:7px 11px;font-size:12px;margin-bottom:8px;}
+
+  /* セリフ編集 */
+  .lineList-wrap{overflow:auto;flex:1;min-height:140px;padding-right:4px;}
+  .lhead,.lrow{display:grid;grid-template-columns:92px 96px 1fr 70px 78px;gap:6px;align-items:center;margin-bottom:6px;}
+  .lhead{font-size:10px;color:#6a5e42;margin-bottom:2px;}
+  .lrow select,.lrow input{background:#2b2418;color:#e8dcc0;border:1px solid rgba(232,220,192,.25);border-radius:5px;
+    padding:6px;font-size:12px;min-width:0;font-family:'Zen Old Mincho',serif;}
+  .lrow .btns{display:flex;gap:3px;}
+  .lrow .btns button{background:rgba(43,36,24,.12);border:1px solid rgba(58,47,42,.3);color:#3a2f2a;border-radius:5px;
+    padding:5px 6px;font-size:11px;cursor:pointer;}
+  .preview{background:rgba(43,36,24,.07);border-radius:6px;padding:8px 10px;margin:8px 0;font-size:12.5px;line-height:1.8;max-height:120px;overflow:auto;}
+  .preview .pl{margin:2px 0;}
+  .preview .nm{color:#8a6a2e;font-weight:700;margin-right:6px;}
+  .preview .narr{color:#6a5e42;font-style:italic;}
+
+  /* テストプレイ */
+  .playsheet{background:linear-gradient(180deg,#2b2418,#1b160f);border:1px solid rgba(176,141,87,.4);max-width:940px;width:100%;
+    border-radius:10px;padding:12px 14px 14px;box-shadow:0 20px 60px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:10px;}
+  .playbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;color:#e8dcc0;}
+  .playbar .ttl{font-family:'Cormorant Garamond',serif;letter-spacing:.1em;font-size:16px;}
+  .playbar .phint{font-size:11px;color:#b7ab8a;flex:1;min-width:160px;}
+  #playFrame{width:100%;height:72vh;border:none;border-radius:6px;background:#201b14;display:block;}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>GRAVITY TALE · Stage Editor</h1>
+      <div class="sub">地形も・キャラも・会話も、マウスで置いて書き出す</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="bar">
+      <select id="gridSel" class="btn" title="グリッド">
+        <option value="0">自由配置</option><option value="5">5px</option>
+        <option value="10" selected>10px</option><option value="15">15px</option><option value="20">20px</option>
+      </select>
+      <button class="btn" id="btnUndo" title="元に戻す (Ctrl+Z)">↶ 戻す</button>
+      <button class="btn" id="btnDup" title="複製 (Ctrl+D)">⧉ 複製</button>
+      <button class="btn danger" id="btnClear">全消去</button>
+    </div>
+    <div class="bar">
+      <input type="text" id="slotName" class="btn" style="width:110px" placeholder="保存名">
+      <button class="btn" id="btnSaveSlot">💾 保存</button>
+      <select id="slotSel" class="btn"><option value="">― 読み込み ―</option></select>
+      <button class="btn danger" id="btnDelSlot" title="削除">🗑</button>
+    </div>
+    <div class="bar">
+      <button class="btn go" id="btnPlay">▶ テストプレイ</button>
+      <button class="btn" id="btnExportJSON">⇩ JSON</button>
+      <button class="btn" id="btnImportJSON">⇧ 読込</button>
+      <button class="btn go" id="btnExportJS">▶ 書き出し</button>
+      <input type="file" id="fileInput" accept=".json,application/json" style="display:none">
+    </div>
+  </header>
+
+  <main>
+    <div class="tools" id="tools">
+      <div class="lbl">じめん</div>
+      <button class="tool active" data-tool="select"><span class="swatch" style="background:#d9b877"></span>選択・移動</button>
+      <button class="tool" data-tool="ledge"><span class="swatch" style="background:#6b5b46"></span>床の足場</button>
+      <button class="tool" data-tool="ceilingLedge"><span class="swatch" style="background:#6b5b46;border-top:3px solid #e8dcc0"></span>天井の足場</button>
+      <button class="tool" data-tool="box"><span class="swatch" style="background:#8b5e63"></span>木の箱</button>
+      <button class="tool" data-tool="enemy"><span class="swatch" style="background:#3a2f2a"></span>敵</button>
+      <button class="tool" data-tool="goal"><span class="swatch" style="background:#b08d57"></span>ゴール旗</button>
+      <div class="lbl">とうじょう人物</div>
+      <button class="tool" data-tool="npc-mari"><span class="swatch" style="background:#4a4e6d"></span>マリ</button>
+      <button class="tool" data-tool="npc-hood"><span class="swatch" style="background:#b8423f"></span>赤ずきん</button>
+      <button class="tool" data-tool="npc-wolf"><span class="swatch" style="background:#3a2f2a"></span>狼</button>
+      <div class="lbl">　</div>
+      <button class="tool" data-tool="erase"><span class="swatch" style="background:#c9503f"></span>けしゴム</button>
+      <div class="mini">人物を置いたら右で<b>セリフ</b>を書けます。会話を使うなら種類を<b>story</b>に。</div>
+    </div>
+
+    <div class="canvas-col">
+      <div class="canvas-wrap"><canvas id="cv" width="1800" height="960"></canvas></div>
+      <div class="hint"><b>ドラッグ</b>で配置／移動・<b>四隅の□</b>で大きさ変更・<b>Del</b>で削除・<b>矢印</b>で微調整（Shiftで大きく）</div>
+    </div>
+
+    <div class="props" id="props">
+      <h3>ステージ設定</h3>
+      <div class="row"><label>ID</label><input type="text" id="mId" value="my_stage"></div>
+      <div class="row"><label>見出し</label><input type="text" id="mLabel" value="新ステージ"></div>
+      <div class="row"><label>種類</label>
+        <select id="mType"><option value="play">play（右へ進む）</option><option value="story">story（会話）</option></select></div>
+      <div class="row" id="rowClear"><label>クリア</label>
+        <select id="mClear"><option value="exit">exit（右端へ）</option><option value="goal">goal（旗に触れる）</option></select></div>
+      <button class="btn fullbtn" id="introBtn">開始ナレを編集（0行）</button>
+      <div class="mini" id="introNote">※ play では最初の1行だけが使われます。</div>
+
+      <h3 style="margin-top:16px">選んだもの</h3>
+      <div id="propBody"><div class="empty-note">キャンバスの何かを選ぶと、ここで調整できます。</div></div>
+    </div>
+  </main>
+</div>
+
+<!-- 書き出し -->
+<div class="modal" id="exportModal">
+  <div class="sheet">
+    <h2>ステージを書き出す</h2>
+    <div class="steps">
+      ① 下を全部コピー → <code>stages/XX_<span id="stepId">id</span>.js</code> で保存　
+      ② <code>index.html</code> に <code>&lt;script src="stages/XX_….js"&gt;</code> を1行追加　
+      ③ <code>playlist.js</code> の <code>GT.playlist</code> に <code>'<span id="stepId2">id</span>'</code> を追加
+    </div>
+    <div class="warn" id="exportWarn" style="display:none"></div>
+    <textarea id="exportText" class="code" readonly spellcheck="false"></textarea>
+    <div class="foot">
+      <button class="btn go" id="btnCopy">コピー</button>
+      <button class="btn" id="btnDownloadJS">.js でダウンロード</button>
+      <button class="btn" id="btnCloseExport">閉じる</button>
+      <div class="tip">※ 分岐（choices）だけは複雑なので、必要なら書き出し後に手で足してください。</div>
+    </div>
+  </div>
+</div>
+
+<!-- セリフ編集 -->
+<div class="modal" id="lineModal">
+  <div class="sheet">
+    <h2 id="lineTitle">セリフ編集</h2>
+    <p>上から順に表示されます。色で話者の色が決まります（地の文＝ナレーション）。</p>
+    <div class="lhead"><span>色</span><span>話者名</span><span>セリフ</span><span>act(任意)</span><span></span></div>
+    <div class="lineList-wrap"><div id="lineList"></div></div>
+    <div class="preview" id="linePreview"></div>
+    <div class="foot">
+      <button class="btn go" id="lineAdd">＋ 行を追加</button>
+      <button class="btn" id="lineDone">完了</button>
+      <div class="tip">act は特別演出の合図（例：赤ずきんの家の <code>peek-on</code>）。ふつうは空のままでOK。</div>
+    </div>
+  </div>
+</div>
+
+<!-- テストプレイ -->
+<div class="modal" id="playModal">
+  <div class="playsheet">
+    <div class="playbar">
+      <span class="ttl">▶ テストプレイ</span>
+      <span class="phint" id="playHint">画面をクリック → ←→移動 / ↑ジャンプ / F 重力反転 / 人物に ▲・Enter</span>
+      <button class="btn" id="playRestart">↺ 最初から</button>
+      <button class="btn danger" id="playClose">閉じる</button>
+    </div>
+    <iframe id="playFrame" title="テストプレイ"></iframe>
+  </div>
+</div>
+
+<script>
+/* ==========================================================================
+   Gravity Tale ステージエディタ v2 ── 地形＋キャラ＋会話
+   ・engine.js と同じ 900×480・綴じ目 x=450
+   ・書き出しは 00_opening.js / 04_house_peek.js と同じ story 形式にそろえてある
+   ========================================================================== */
+(function(){
+"use strict";
+const W=900,H=480,SPINE=450,EDGE=16,DPR=2;
+const FLOOR=H-EDGE;                    // 人物が立つ床の高さ
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d'); ctx.scale(DPR,DPR);
+
+/* 色の種類（会話） */
+const COLORS=[['narr','地の文'],['mari','マリ'],['hood','赤ずきん'],['wolf','狼'],['mother','母親'],['granny','おばあさん']];
+const DEFNAME={narr:'',mari:'マリ',hood:'赤ずきん',wolf:'狼',mother:'母親',granny:'おばあさん'};
+/* 置ける人物 */
+const WHO={ mari:{name:'マリ'}, hood:{name:'赤ずきん'}, wolf:{name:'狼'} };
+const WHOLABEL={mari:'マリ',hood:'赤ずきん',wolf:'狼'};
+/* playlist.js の既定ページ key（onEnd 用のヒント） */
+const PAGE_KEYS=['prologue','window','meet','wolf','granny','result'];
+
+const DEFAULTS={ledge:{w:120,h:20},ceilingLedge:{w:120,h:20},box:{w:32,h:32},enemy:{w:26,h:22},goal:{w:26,h:34}};
+const LABELS={ledge:'床の足場',ceilingLedge:'天井の足場',box:'木の箱',enemy:'敵',goal:'ゴール旗'};
+const NPC_W=32, NPC_H=40;
+const PLAYER_START={x:60,y:FLOOR-34,w:26,h:34};
+
+/* ---- 状態 ---- */
+let state=blank();
+let tool='select', selected=null, grid=10;
+
+function blank(){ return { meta:{id:'my_stage',label:'新ステージ',type:'play',clear:'exit',intro:[{s:'',c:'narr',t:'右へ進もう。'}]},
+  objects:[], npcs:[] }; }
+function normalize(s){
+  s=s||{}; s.meta=s.meta||{};
+  if(typeof s.meta.intro==='string') s.meta.intro = s.meta.intro?[{s:'',c:'narr',t:s.meta.intro}]:[];
+  if(!Array.isArray(s.meta.intro)) s.meta.intro=[];
+  s.meta.id=s.meta.id||'my_stage'; s.meta.label=s.meta.label!=null?s.meta.label:'';
+  s.meta.type=s.meta.type||'play'; s.meta.clear=s.meta.clear||'exit';
+  s.objects=(s.objects||[]).map(o=>({type:o.type,x:o.x,y:o.y,w:o.w,h:o.h,dir:o.dir}));
+  s.npcs=(s.npcs||[]).map(n=>({who:WHO[n.who]?n.who:'mari', name:n.name!=null?n.name:'', x:n.x||300, w:NPC_W,h:NPC_H,
+    lines:(n.lines||[]).map(l=>({s:l.s||'',c:l.c||'narr',t:l.t||'',act:l.act||''})),
+    onEndKey:n.onEndKey||'', onEndText:n.onEndText||'' }));
+  return s;
+}
+const isNpc = sel => state.npcs.includes(sel);
+
+/* ---- undo ---- */
+let undoStack=[];
+function snapshot(){ undoStack.push(JSON.stringify(state)); if(undoStack.length>80) undoStack.shift(); }
+function undo(){ if(!undoStack.length) return; state=normalize(JSON.parse(undoStack.pop())); selected=null; syncMeta(); autosave(); draw(); renderProps(); }
+
+/* ---- 補助 ---- */
+function snap(v){ return grid>0?Math.round(v/grid)*grid:Math.round(v); }
+function clampObj(o){ o.w=Math.max(8,o.w); o.h=Math.max(8,o.h);
+  o.x=Math.max(-20,Math.min(W-8,o.x)); o.y=Math.max(-20,Math.min(H-8,o.y)); }
+function clampNpc(n){ n.x=Math.max(EDGE,Math.min(W-EDGE-n.w,n.x)); }
+function npcBox(n){ return {x:n.x,y:FLOOR-n.h,w:n.w,h:n.h}; }
+function pageX(cx){ return cx<SPINE?'left':'right'; }
+
+/* ==========================================================================
+   描画
+   ========================================================================== */
+function roundRect(x,y,w,h,r){ r=Math.min(r,w/2,h/2); ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#efe4c8'); g.addColorStop(1,'#e2d3ab');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='rgba(87,100,74,.05)'; ctx.fillRect(0,0,SPINE,H);
+  ctx.fillStyle='rgba(139,94,99,.05)'; ctx.fillRect(SPINE,0,SPINE,H);
+  if(grid>0){ ctx.strokeStyle='rgba(58,50,38,.08)'; ctx.lineWidth=1;
+    for(let x=grid;x<W;x+=grid){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+    for(let y=grid;y<H;y+=grid){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); } }
+  ctx.strokeStyle='rgba(58,50,38,.5)'; ctx.lineWidth=2; ctx.setLineDash([4,4]);
+  ctx.strokeRect(EDGE,EDGE,W-EDGE*2,H-EDGE*2); ctx.setLineDash([]);
+  ctx.strokeStyle='rgba(87,100,74,.35)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(0,FLOOR); ctx.lineTo(W,FLOOR); ctx.stroke();
+  const sg=ctx.createLinearGradient(SPINE-14,0,SPINE+14,0);
+  sg.addColorStop(0,'rgba(58,50,38,0)'); sg.addColorStop(.5,'rgba(58,50,38,.4)'); sg.addColorStop(1,'rgba(58,50,38,0)');
+  ctx.fillStyle=sg; ctx.fillRect(SPINE-14,0,28,H);
+  ctx.fillStyle='rgba(74,70,60,.5)'; ctx.font="700 12px 'Zen Old Mincho',serif"; ctx.textAlign='center';
+  ctx.fillText('左ページ',SPINE/2,26); ctx.fillText('右ページ',SPINE+SPINE/2,26);
+
+  // スタート地点
+  ctx.save(); ctx.globalAlpha=.5; ctx.fillStyle='#2b2e4a'; roundRect(PLAYER_START.x,PLAYER_START.y,PLAYER_START.w,PLAYER_START.h,8); ctx.fill();
+  ctx.globalAlpha=1; ctx.fillStyle='rgba(43,46,74,.7)'; ctx.font="600 10px 'Zen Old Mincho',serif";
+  ctx.fillText('スタート',PLAYER_START.x+PLAYER_START.w/2,PLAYER_START.y-5); ctx.restore();
+
+  for(const o of state.objects) drawObj(o);
+  for(const n of state.npcs) drawNpc(n);
+
+  if(selected){ if(isNpc(selected)) drawSelBox(npcBox(selected),true); else drawHandles(selected); }
+}
+
+function drawObj(o){
+  ctx.save();
+  if(o.type==='ledge'||o.type==='ceilingLedge'){
+    roundRect(o.x,o.y,o.w,o.h,Math.min(9,o.h/2)); ctx.fillStyle='#6b5b46'; ctx.fill();
+    ctx.fillStyle='rgba(232,220,192,.3)';
+    if(o.type==='ledge') ctx.fillRect(o.x+4,o.y+2,o.w-8,3); else ctx.fillRect(o.x+4,o.y+o.h-5,o.w-8,3);
+  } else if(o.type==='box'){
+    roundRect(o.x,o.y,o.w,o.h,6); ctx.fillStyle='#8b5e63'; ctx.fill();
+    ctx.strokeStyle='rgba(232,220,192,.5)'; ctx.lineWidth=2; ctx.beginPath();
+    ctx.moveTo(o.x+4,o.y+4); ctx.lineTo(o.x+o.w-4,o.y+o.h-4); ctx.moveTo(o.x+o.w-4,o.y+4); ctx.lineTo(o.x+4,o.y+o.h-4); ctx.stroke();
+  } else if(o.type==='enemy'){
+    roundRect(o.x,o.y,o.w,o.h,6); ctx.fillStyle='#3a2f2a'; ctx.fill();
+    const ex=(o.dir>=0?o.x+o.w-6:o.x+2);
+    ctx.beginPath(); ctx.moveTo(ex,o.y); ctx.lineTo(ex+3,o.y-7); ctx.lineTo(ex+6,o.y); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#c9503f'; ctx.beginPath(); ctx.arc(o.dir>=0?o.x+o.w-8:o.x+8,o.y+o.h*0.4,2.4,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='rgba(201,80,63,.8)'; ctx.lineWidth=1.5; const my=o.y+o.h+7, cx=o.x+o.w/2;
+    ctx.beginPath(); ctx.moveTo(cx-8,my); ctx.lineTo(cx+8,my);
+    const tip=o.dir>=0?cx+8:cx-8, s=o.dir>=0?-1:1; ctx.moveTo(tip,my); ctx.lineTo(tip+5*s,my-3); ctx.moveTo(tip,my); ctx.lineTo(tip+5*s,my+3); ctx.stroke();
+  } else if(o.type==='goal'){
+    ctx.fillStyle='#b08d57'; const hw=o.w/2; ctx.beginPath();
+    ctx.moveTo(o.x,o.y); ctx.lineTo(o.x+o.w,o.y); ctx.lineTo(o.x+o.w,o.y+o.h); ctx.lineTo(o.x+hw,o.y+o.h-6); ctx.lineTo(o.x,o.y+o.h); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='rgba(58,50,38,.6)'; ctx.lineWidth=1.5; ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/* 人物（engine.js の見た目を簡略化して再現） */
+function drawNpc(n){
+  const cx=n.x+n.w/2, w=n.w, h=n.h;
+  ctx.save();
+  if(n.who==='wolf'){
+    const bw=w+8, bh=h*0.62, cy=FLOOR-bh/2-6; ctx.translate(cx,cy); ctx.fillStyle='#3a2f2a';
+    ctx.fillRect(-bw/2+4,bh/2-2,6,10); ctx.fillRect(bw/2-10,bh/2-2,6,10);
+    roundRect(-bw/2,-bh/2,bw,bh,8); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(bw/2-12,-bh/2); ctx.lineTo(bw/2-6,-bh/2-11); ctx.lineTo(bw/2,-bh/2); ctx.closePath(); ctx.fill();
+    roundRect(bw/2-8,-bh*0.12,bw*0.38,bh*0.34,4); ctx.fillStyle='#2c231f'; ctx.fill();
+    ctx.fillStyle='#c9503f'; ctx.beginPath(); ctx.arc(bw/2-12,-bh*0.14,2.6,0,Math.PI*2); ctx.fill();
+  } else {
+    const hw=w/2, hh=h/2, cy=FLOOR-hh; ctx.translate(cx,cy);
+    ctx.fillStyle=(n.who==='mari')?'#4a4e6d':'#2b2e4a'; roundRect(-hw,-hh,w,h,9); ctx.fill();
+    if(n.who==='hood'){
+      ctx.fillStyle='#b8423f';
+      ctx.beginPath(); ctx.moveTo(-hw,-hh*0.1); ctx.lineTo(hw,-hh*0.1); ctx.lineTo(hw*0.7,hh*0.9); ctx.lineTo(-hw*0.7,hh*0.9); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.arc(0,-hh,hw*0.95,Math.PI,0); ctx.closePath(); ctx.fill();
+    } else if(n.who==='mari'){
+      ctx.fillStyle='#a9b0d6'; ctx.beginPath(); ctx.moveTo(-4,-hh); ctx.lineTo(0,-hh-9); ctx.lineTo(4,-hh); ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle='#e8dcc0'; ctx.beginPath(); ctx.arc(-5,-hh*0.35,2.4,0,Math.PI*2); ctx.arc(5,-hh*0.35,2.4,0,Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+  ctx.save(); ctx.textAlign='center';
+  if(n.name){ ctx.font="600 11px 'Zen Old Mincho',serif"; ctx.fillStyle='rgba(74,70,60,.9)'; ctx.fillText(n.name,cx,FLOOR-h-15); }
+  const talk=(n.lines&&n.lines.some(l=>l.t));
+  ctx.font="700 12px 'Zen Old Mincho',serif"; ctx.fillStyle=talk?'#b08d57':'rgba(138,130,102,.6)';
+  ctx.fillText(talk?'💬 はなす':'（セリフ無し）',cx,FLOOR-h-30);
+  ctx.restore();
+}
+
+function handleRects(o){ const s=9,x=o.x,y=o.y,w=o.w,h=o.h; return {
+  nw:[x-s/2,y-s/2,s,s],n:[x+w/2-s/2,y-s/2,s,s],ne:[x+w-s/2,y-s/2,s,s],e:[x+w-s/2,y+h/2-s/2,s,s],
+  se:[x+w-s/2,y+h-s/2,s,s],s:[x+w/2-s/2,y+h-s/2,s,s],sw:[x-s/2,y+h-s/2,s,s],w:[x-s/2,y+h/2-s/2,s,s] }; }
+function drawSelBox(b,noHandle){ ctx.save(); ctx.strokeStyle='#d9b877'; ctx.lineWidth=1.5; ctx.setLineDash([5,3]);
+  ctx.strokeRect(b.x-1,b.y-1,b.w+2,b.h+2); ctx.setLineDash([]); ctx.restore(); }
+function drawHandles(o){ drawSelBox(o);
+  ctx.save(); const hs=handleRects(o); ctx.fillStyle='#efe4c8'; ctx.strokeStyle='#8a6a2e'; ctx.lineWidth=1;
+  for(const k in hs){ const r=hs[k]; ctx.fillRect(r[0],r[1],r[2],r[3]); ctx.strokeRect(r[0],r[1],r[2],r[3]); }
+  ctx.fillStyle='rgba(43,46,74,.85)'; ctx.font="600 11px 'Zen Old Mincho',serif"; ctx.textAlign='left';
+  ctx.fillText(`${Math.round(o.w)}×${Math.round(o.h)}`,o.x,o.y-6); ctx.restore(); }
+
+/* ==========================================================================
+   入力
+   ========================================================================== */
+function toWorld(e){ const r=cv.getBoundingClientRect(); return {x:(e.clientX-r.left)/r.width*W,y:(e.clientY-r.top)/r.height*H}; }
+function hitObject(p){ for(let i=state.objects.length-1;i>=0;i--){ const o=state.objects[i];
+  if(p.x>=o.x&&p.x<=o.x+o.w&&p.y>=o.y&&p.y<=o.y+o.h) return o; } return null; }
+function hitNpc(p){ for(let i=state.npcs.length-1;i>=0;i--){ const b=npcBox(state.npcs[i]);
+  if(p.x>=b.x&&p.x<=b.x+b.w&&p.y>=b.y&&p.y<=b.y+b.h) return state.npcs[i]; } return null; }
+function hitHandle(o,p){ if(!o||isNpc(o)) return null; const hs=handleRects(o);
+  for(const k in hs){ const r=hs[k]; if(p.x>=r[0]&&p.x<=r[0]+r[2]&&p.y>=r[1]&&p.y<=r[1]+r[3]) return k; } return null; }
+
+let drag=null, dirtied=false;
+cv.addEventListener('pointerdown',e=>{
+  e.preventDefault(); cv.setPointerCapture(e.pointerId); const p=toWorld(e); dirtied=false;
+
+  if(tool==='erase'){ const n=hitNpc(p), o=hitObject(p);
+    if(n){ snapshot(); state.npcs.splice(state.npcs.indexOf(n),1); if(selected===n) selected=null; }
+    else if(o){ snapshot(); state.objects.splice(state.objects.indexOf(o),1); if(selected===o) selected=null; }
+    autosave(); draw(); renderProps(); return; }
+
+  if(tool==='select'){
+    const hk=hitHandle(selected,p);
+    if(hk){ snapshot(); drag={mode:'resize',handle:hk,o0:{...selected},start:p}; return; }
+    const target=hitNpc(p)||hitObject(p); selected=target;
+    if(target){ snapshot(); drag={mode:'move',o0:{...target},start:p,npc:isNpc(target)}; }
+    draw(); renderProps(); return;
+  }
+
+  if(tool.startsWith('npc-')){
+    snapshot(); const who=tool.slice(4); const def=WHO[who];
+    const n={who,name:def.name,x:snap(p.x-NPC_W/2),w:NPC_W,h:NPC_H,
+      lines:[{s:def.name,c:who,t:'…'}], onEndKey:'',onEndText:''};
+    clampNpc(n); state.npcs.push(n); selected=n; tool='select'; setActiveTool();
+    autosave(); draw(); renderProps(); return;
+  }
+
+  // 地形・箱・敵・ゴール作成
+  snapshot(); const o={type:tool,x:snap(p.x),y:snap(p.y),w:0,h:0}; if(tool==='enemy') o.dir=-1;
+  state.objects.push(o); selected=o; drag={mode:'create',handle:'se',o0:{...o},start:{x:o.x,y:o.y}};
+  draw(); renderProps();
+});
+
+cv.addEventListener('pointermove',e=>{
+  const p=toWorld(e);
+  if(!drag && tool==='select'){ cv.style.cursor = hitHandle(selected,p)?'nwse-resize':((hitNpc(p)||hitObject(p))?'move':'default'); }
+  if(!drag) return; dirtied=true; const o=selected; if(!o) return;
+  if(drag.mode==='move'){
+    if(drag.npc){ o.x=snap(drag.o0.x+(p.x-drag.start.x)); clampNpc(o); }
+    else { o.x=snap(drag.o0.x+(p.x-drag.start.x)); o.y=snap(drag.o0.y+(p.y-drag.start.y)); }
+  } else {
+    const b=drag.o0,h=drag.handle; let x1=b.x,y1=b.y,x2=b.x+b.w,y2=b.y+b.h;
+    if(drag.mode==='create'){ x2=snap(p.x); y2=snap(p.y); }
+    else{ if(h.includes('e'))x2=snap(b.x+b.w+(p.x-drag.start.x)); if(h.includes('w'))x1=snap(b.x+(p.x-drag.start.x));
+          if(h.includes('s'))y2=snap(b.y+b.h+(p.y-drag.start.y)); if(h.includes('n'))y1=snap(b.y+(p.y-drag.start.y)); }
+    o.x=Math.min(x1,x2); o.y=Math.min(y1,y2); o.w=Math.abs(x2-x1); o.h=Math.abs(y2-y1);
+  }
+  draw(); renderProps();
+});
+function endDrag(){ if(!drag) return; const o=selected;
+  if(o){ if(drag.mode==='create'&&o.w<4&&o.h<4){ const d=DEFAULTS[o.type]; o.w=d.w; o.h=d.h; }
+    if(!isNpc(o)) clampObj(o); else clampNpc(o);
+    if(drag.mode==='create'){ tool='select'; setActiveTool(); } }
+  if(!dirtied&&undoStack.length) undoStack.pop();
+  drag=null; autosave(); draw(); renderProps(); }
+cv.addEventListener('pointerup',endDrag); cv.addEventListener('pointercancel',endDrag);
+
+window.addEventListener('keydown',e=>{
+  if(['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return;
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){ e.preventDefault(); undo(); return; }
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='d'){ e.preventDefault(); duplicate(); return; }
+  if(!selected) return;
+  if(e.key==='Delete'||e.key==='Backspace'){ e.preventDefault(); snapshot();
+    if(isNpc(selected)) state.npcs.splice(state.npcs.indexOf(selected),1);
+    else state.objects.splice(state.objects.indexOf(selected),1);
+    selected=null; autosave(); draw(); renderProps(); return; }
+  const step=e.shiftKey?(grid>0?grid:10):(grid>0?grid:1); let m=false;
+  if(e.key==='ArrowLeft'){ selected.x-=step; m=true; } if(e.key==='ArrowRight'){ selected.x+=step; m=true; }
+  if(!isNpc(selected)){ if(e.key==='ArrowUp'){ selected.y-=step; m=true; } if(e.key==='ArrowDown'){ selected.y+=step; m=true; } }
+  if(m){ e.preventDefault(); if(isNpc(selected)) clampNpc(selected); else clampObj(selected); autosave(); draw(); renderProps(); }
+});
+function duplicate(){ if(!selected) return; snapshot();
+  if(isNpc(selected)){ const n={...selected,lines:selected.lines.map(l=>({...l})),x:selected.x+30}; clampNpc(n); state.npcs.push(n); selected=n; }
+  else { const n={...selected,x:selected.x+20,y:selected.y+20}; clampObj(n); state.objects.push(n); selected=n; }
+  autosave(); draw(); renderProps(); }
+
+/* ==========================================================================
+   道具・プロパティ
+   ========================================================================== */
+function setActiveTool(){ document.querySelectorAll('.tool').forEach(b=>b.classList.toggle('active',b.dataset.tool===tool)); }
+document.querySelectorAll('.tool').forEach(b=>b.addEventListener('click',()=>{ tool=b.dataset.tool; setActiveTool();
+  if(tool!=='select'){ selected=null; renderProps(); } cv.style.cursor=tool==='select'?'default':'crosshair'; }));
+
+function el(id){ return document.getElementById(id); }
+function escAttr(s){ return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function renderProps(){
+  const body=el('propBody');
+  if(!selected){ body.innerHTML='<div class="empty-note">キャンバスの何かを選ぶと、ここで調整できます。</div>'; return; }
+  if(isNpc(selected)){ renderNpcProps(selected,body); return; }
+  const o=selected;
+  let h=`<div class="row"><label>種類</label><span class="pagechip">${LABELS[o.type]}</span>
+    <span style="margin-left:auto" class="pagechip">${pageX(o.x+o.w/2)==='left'?'左':'右'}ページ</span></div>
+    <div class="grid2"><div class="cell"><span>X</span><input type="number" id="pX" value="${Math.round(o.x)}"></div>
+    <div class="cell"><span>Y</span><input type="number" id="pY" value="${Math.round(o.y)}"></div></div>
+    <div class="grid2" style="margin-top:6px"><div class="cell"><span>幅</span><input type="number" id="pW" value="${Math.round(o.w)}"></div>
+    <div class="cell"><span>高</span><input type="number" id="pH" value="${Math.round(o.h)}"></div></div>`;
+  if(o.type==='enemy') h+=`<div class="row" style="margin-top:8px"><label>歩く向き</label>
+    <select id="pDir"><option value="-1" ${o.dir<0?'selected':''}>← 左へ</option><option value="1" ${o.dir>=0?'selected':''}>右へ →</option></select></div>`;
+  h+=`<button class="btn danger fullbtn" id="pDel">このオブジェクトを削除</button>`;
+  if(o.type==='ledge') h+=`<div class="mini">縦長にすると「壁」になります（例 w:30, h:170）。</div>`;
+  if(o.type==='enemy'||o.type==='box') h+=`<div class="mini">重力で落ちます。床の上に置くと安定。</div>`;
+  body.innerHTML=h;
+  const bind=(id,f)=>{ const e=el(id); if(e) e.addEventListener('input',()=>{ snapshot(); f(parseFloat(e.value)||0); clampObj(o); autosave(); draw(); }); };
+  bind('pX',v=>o.x=v); bind('pY',v=>o.y=v); bind('pW',v=>o.w=v); bind('pH',v=>o.h=v);
+  const d=el('pDir'); if(d) d.addEventListener('change',()=>{ snapshot(); o.dir=parseInt(d.value); autosave(); draw(); });
+  el('pDel').addEventListener('click',()=>{ snapshot(); state.objects.splice(state.objects.indexOf(o),1); selected=null; autosave(); draw(); renderProps(); });
+}
+
+function renderNpcProps(n,body){
+  const opts=Object.keys(WHOLABEL).map(k=>`<option value="${k}" ${n.who===k?'selected':''}>${WHOLABEL[k]}</option>`).join('');
+  const keyOpts=PAGE_KEYS.map(k=>`<option value="${k}">`).join('');
+  let h=`<div class="row"><label>人物</label><select id="nWho">${opts}</select>
+    <span style="margin-left:auto" class="pagechip">${pageX(n.x+n.w/2)==='left'?'左':'右'}ページ</span></div>
+    <div class="row"><label>表示名</label><input type="text" id="nName" value="${escAttr(n.name)}"></div>
+    <div class="row"><label>X位置</label><input type="number" id="nX" value="${Math.round(n.x)}"></div>
+    <button class="btn go fullbtn" id="nLines">💬 セリフを編集（${n.lines.length}行）</button>
+    <h3 style="margin-top:14px">話し終えたら本に書く（任意）</h3>
+    <div class="row"><label>ページkey</label><input type="text" id="nKey" list="pageKeys" value="${escAttr(n.onEndKey)}" placeholder="例 meet"></div>
+    <datalist id="pageKeys">${keyOpts}</datalist>
+    <textarea class="note" id="nText" placeholder="このページに書き込む文章">${escAttr(n.onEndText)}</textarea>
+    <div class="mini">既定ページ：${PAGE_KEYS.join(' / ')}（playlist.js で定義）</div>
+    <button class="btn danger fullbtn" id="nDel" style="margin-top:8px">この人物を削除</button>`;
+  body.innerHTML=h;
+  el('nWho').addEventListener('change',e=>{ snapshot(); n.who=e.target.value; autosave(); draw(); });
+  el('nName').addEventListener('input',e=>{ snapshot(); n.name=e.target.value; autosave(); draw(); });
+  el('nX').addEventListener('input',e=>{ snapshot(); n.x=parseFloat(e.target.value)||0; clampNpc(n); autosave(); draw(); });
+  el('nKey').addEventListener('input',e=>{ n.onEndKey=e.target.value.trim(); autosave(); });
+  el('nText').addEventListener('input',e=>{ n.onEndText=e.target.value; autosave(); });
+  el('nLines').addEventListener('click',()=>openLineEditor(n.lines, (n.name||WHOLABEL[n.who])+' のセリフ', n.who, ()=>{ autosave(); draw(); renderProps(); }));
+  el('nDel').addEventListener('click',()=>{ snapshot(); state.npcs.splice(state.npcs.indexOf(n),1); selected=null; autosave(); draw(); renderProps(); });
+}
+
+/* ==========================================================================
+   セリフ編集モーダル（NPC・intro 共用）
+   ========================================================================== */
+let lineCtx=null;
+const lineModal=el('lineModal');
+function openLineEditor(arr,title,defC,after){ lineCtx={arr,defC:defC||'narr',after}; el('lineTitle').textContent=title; renderLineRows(); lineModal.classList.add('show'); }
+function renderLineRows(){
+  const list=el('lineList'); list.innerHTML='';
+  lineCtx.arr.forEach((ln,i)=>{
+    const row=document.createElement('div'); row.className='lrow';
+    row.innerHTML=`
+      <select class="lc">${COLORS.map(c=>`<option value="${c[0]}" ${ln.c===c[0]?'selected':''}>${c[1]}</option>`).join('')}</select>
+      <input class="ls" placeholder="話者名" value="${escAttr(ln.s)}">
+      <input class="lt" placeholder="セリフ" value="${escAttr(ln.t)}">
+      <input class="la" placeholder="act" value="${escAttr(ln.act)}">
+      <span class="btns"><button class="up">↑</button><button class="dn">↓</button><button class="rm">✕</button></span>`;
+    const c=row.querySelector('.lc'), s=row.querySelector('.ls'), t=row.querySelector('.lt'), a=row.querySelector('.la');
+    c.addEventListener('change',()=>{ ln.c=c.value; if(!ln.s){ ln.s=DEFNAME[c.value]; s.value=ln.s; } touch(); });
+    s.addEventListener('input',()=>{ ln.s=s.value; touch(); });
+    t.addEventListener('input',()=>{ ln.t=t.value; touch(); });
+    a.addEventListener('input',()=>{ ln.act=a.value.trim(); touch(); });
+    row.querySelector('.up').addEventListener('click',()=>{ if(i>0){ [lineCtx.arr[i-1],lineCtx.arr[i]]=[lineCtx.arr[i],lineCtx.arr[i-1]]; renderLineRows(); touch(); } });
+    row.querySelector('.dn').addEventListener('click',()=>{ if(i<lineCtx.arr.length-1){ [lineCtx.arr[i+1],lineCtx.arr[i]]=[lineCtx.arr[i],lineCtx.arr[i+1]]; renderLineRows(); touch(); } });
+    row.querySelector('.rm').addEventListener('click',()=>{ lineCtx.arr.splice(i,1); renderLineRows(); touch(); });
+    list.appendChild(row);
+  });
+  renderLinePreview();
+}
+function renderLinePreview(){
+  const pv=el('linePreview');
+  if(!lineCtx.arr.length){ pv.innerHTML='<span class="narr">（まだセリフがありません）</span>'; return; }
+  pv.innerHTML=lineCtx.arr.map(ln=> ln.c==='narr'
+    ? `<div class="pl narr">${escAttr(ln.t)||'……'}</div>`
+    : `<div class="pl"><span class="nm">${escAttr(ln.s||DEFNAME[ln.c])}</span>${escAttr(ln.t)||'……'}</div>`).join('');
+}
+function touch(){ renderLinePreview(); if(lineCtx.after) lineCtx.after(); }
+el('lineAdd').addEventListener('click',()=>{ lineCtx.arr.push({c:lineCtx.defC,s:DEFNAME[lineCtx.defC],t:'',act:''}); renderLineRows(); touch(); });
+el('lineDone').addEventListener('click',()=>{ lineModal.classList.remove('show'); renderProps(); updateMetaUI(); });
+lineModal.addEventListener('click',e=>{ if(e.target===lineModal){ lineModal.classList.remove('show'); renderProps(); updateMetaUI(); } });
+
+/* ==========================================================================
+   ステージ設定（メタ）
+   ========================================================================== */
+function v(id){ return el(id).value; }
+['mId','mLabel','mType','mClear'].forEach(id=> el(id).addEventListener('input',()=>{
+  state.meta.id=v('mId').trim()||'my_stage'; state.meta.label=v('mLabel');
+  state.meta.type=v('mType'); state.meta.clear=v('mClear'); autosave(); updateMetaUI(); draw(); }));
+el('introBtn').addEventListener('click',()=>openLineEditor(state.meta.intro,'開始ナレーション','narr',()=>{ autosave(); updateMetaUI(); }));
+function updateMetaUI(){ el('introBtn').textContent='開始ナレを編集（'+(state.meta.intro?state.meta.intro.length:0)+'行）';
+  el('rowClear').style.display=state.meta.type==='story'?'none':'flex';
+  el('introNote').style.display=state.meta.type==='play'?'block':'none'; }
+function syncMeta(){ el('mId').value=state.meta.id; el('mLabel').value=state.meta.label;
+  el('mType').value=state.meta.type; el('mClear').value=state.meta.clear; updateMetaUI(); }
+el('gridSel').addEventListener('change',e=>{ grid=parseInt(e.target.value); draw(); });
+
+/* ==========================================================================
+   保存・読み込み
+   ========================================================================== */
+const AUTO='gt_editor_autosave_v2', SLOTS='gt_editor_slots_v2';
+function autosave(){ try{ localStorage.setItem(AUTO,JSON.stringify(state)); }catch(e){} }
+function getSlots(){ try{ return JSON.parse(localStorage.getItem(SLOTS)||'{}'); }catch(e){ return {}; } }
+function refreshSlots(){ const sel=el('slotSel'); const s=getSlots();
+  sel.innerHTML='<option value="">― 読み込み ―</option>'+Object.keys(s).map(k=>`<option>${escAttr(k)}</option>`).join(''); }
+el('btnSaveSlot').addEventListener('click',()=>{ const name=v('slotName').trim()||state.meta.id||'stage';
+  const s=getSlots(); s[name]=state; localStorage.setItem(SLOTS,JSON.stringify(s)); refreshSlots(); el('slotSel').value=name; flash('「'+name+'」を保存しました'); });
+el('slotSel').addEventListener('change',e=>{ const name=e.target.value; if(!name) return; const s=getSlots();
+  if(s[name]){ snapshot(); state=normalize(JSON.parse(JSON.stringify(s[name]))); selected=null; el('slotName').value=name; syncMeta(); autosave(); draw(); renderProps(); } });
+el('btnDelSlot').addEventListener('click',()=>{ const name=el('slotSel').value; if(!name) return; if(!confirm('「'+name+'」を削除しますか？')) return;
+  const s=getSlots(); delete s[name]; localStorage.setItem(SLOTS,JSON.stringify(s)); refreshSlots(); });
+el('btnClear').addEventListener('click',()=>{ if(!confirm('地形・人物をすべて消しますか？')) return; snapshot();
+  state.objects=[]; state.npcs=[]; selected=null; autosave(); draw(); renderProps(); });
+el('btnUndo').addEventListener('click',undo); el('btnDup').addEventListener('click',duplicate);
+
+el('btnExportJSON').addEventListener('click',()=>download((state.meta.id||'stage')+'.json',JSON.stringify(state,null,2)));
+el('btnImportJSON').addEventListener('click',()=>el('fileInput').click());
+el('fileInput').addEventListener('change',e=>{ const f=e.target.files[0]; if(!f) return; const r=new FileReader();
+  r.onload=()=>{ try{ const d=JSON.parse(r.result); if(d&&(d.objects||d.npcs)){ snapshot(); state=normalize(d); selected=null; syncMeta(); autosave(); draw(); renderProps(); flash('読み込みました'); } else alert('エディタの保存形式ではありません'); }catch(err){ alert('読み込めませんでした'); } };
+  r.readAsText(f); e.target.value=''; });
+function download(name,text){ const b=new Blob([text],{type:'text/plain'}); const a=document.createElement('a');
+  a.href=URL.createObjectURL(b); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); }
+
+/* ==========================================================================
+   ステージ JS 書き出し（00_opening.js / 04_house_peek.js と同じ形式）
+   ========================================================================== */
+function esq(s){ return (s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n'); }
+function lineStr(ln){ let s=`{s:'${esq(ln.s||'')}',c:'${ln.c||'narr'}',t:'${esq(ln.t||'')}'`; if(ln.act) s+=`,act:'${esq(ln.act)}'`; return s+'}'; }
+
+function buildStageCode(){
+  const m=state.meta, id=(m.id||'my_stage').trim();
+  const P=[],B=[],E=[]; let goal=null;
+  for(const o of state.objects){ const x=Math.round(o.x),y=Math.round(o.y),w=Math.round(o.w),h=Math.round(o.h); const pg=pageX(x+w/2);
+    if(o.type==='ledge') P.push(`    {page:'${pg}', x:${x}, y:${y}, w:${w}, h:${h}, kind:'ledge'},`);
+    else if(o.type==='ceilingLedge') P.push(`    {page:'${pg}', x:${x}, y:${y}, w:${w}, h:${h}, kind:'ceilingLedge'},`);
+    else if(o.type==='box') B.push(`    {x:${x}, y:${y}, w:${w}, h:${h}},`);
+    else if(o.type==='enemy') E.push(`    {page:'${pg}', x:${x}, y:${y}, w:${w}, h:${h}, dir:${o.dir||-1}},`);
+    else if(o.type==='goal') goal={page:pg,x,y,w,h};
+  }
+  let out=`GT.defineStage('${id}', {\n`;
+  out+=`  platforms:[\n${P.join('\n')}${P.length?'\n':''}  ],\n`;
+  out+=`  boxes:[\n${B.join('\n')}${B.length?'\n':''}  ],\n`;
+  out+=`  enemies:[\n${E.join('\n')}${E.length?'\n':''}  ],\n`;
+  if(m.type==='play'&&goal) out+=`  goal:{page:'${goal.page}', x:${goal.x}, y:${goal.y}, w:${goal.w}, h:${goal.h}},\n`;
+  out+=`});\n\n`;
+
+  if(m.type==='story'){
+    out+=`GT.registerScene({\n  id:'${id}', type:'story', stage:'${id}', label:'${esq(m.label)}',\n`;
+    if(m.intro.length){ out+=`  intro:[\n`; for(const ln of m.intro) out+=`    ${lineStr(ln)},\n`; out+=`  ],\n`; }
+    out+=`  npcs:[\n`;
+    const blocks=state.npcs.map(n=>{ const pg=pageX(n.x+n.w/2);
+      let b=`    { who:'${n.who}', name:'${esq(n.name)}', page:'${pg}', x:${Math.round(n.x)}, lines:[\n`;
+      b+=(n.lines||[]).map(ln=>`      ${lineStr(ln)},`).join('\n')+`\n    ]`;
+      if(n.onEndKey && n.onEndText!=='') b+=`, onEnd:()=>{ GT.fillPage('${esq(n.onEndKey)}','${esq(n.onEndText)}'); }`;
+      return b+` }`;
+    });
+    out+=blocks.join(',\n')+(blocks.length?'\n':'')+`  ],\n});\n`;
+  } else {
+    const clear=goal?'goal':(m.clear||'exit');
+    out+=`GT.registerScene({\n  id:'${id}', type:'play', stage:'${id}', clear:'${clear}',\n  label:'${esq(m.label)}',\n`;
+    if(m.intro.length) out+=`  intro:${lineStr(m.intro[0])},\n`;
+    out+=`});\n`;
+  }
+  return out;
+}
+function buildJS(){ return `/* stages/XX_${(state.meta.id||'my_stage').trim()}.js  ── ステージエディタで作成 */\n`+buildStageCode(); }
+
+/* ==========================================================================
+   テストプレイ ── 本物の engine.js を iframe で起動し、編集中の1ステージを遊ぶ
+   （editor.html は engine.js と同じフォルダに置いてください）
+   ========================================================================== */
+const playModal=el('playModal'), playFrame=el('playFrame');
+function buildPlaytestSrcdoc(){
+  const id=(state.meta.id||'my_stage').trim();
+  const stage=buildStageCode();
+  const pages=`GT.definePages([{key:'prologue',title:'序 ── 森で目覚める'},{key:'window',title:'窓の向こう'},{key:'meet',title:'赤い頭巾の少女'},{key:'wolf',title:'森で出会った狼'},{key:'granny',title:'おばあさんの家'},{key:'result',title:'第一話の結末'}]);`;
+  const endScene=`GT.registerScene({id:'__end',type:'talk',label:'テスト終了',lines:[{s:'',c:'narr',t:'― テストプレイ終了。「閉じる」で編集に戻ります。'}]});`;
+  const flags=`GT.flags={warnedHood:false,route:null,stoppedAtDoor:false,saved:null,grannyAlive:null};`;
+  const init=`(function(){if(!window.GT){document.body.innerHTML='<div class="loaderr">⚠ engine.js を読み込めませんでした。editor.html を engine.js と同じ gravity_tale フォルダの中に置いて開いてください。</div>';return;}${pages}${stage}${endScene}${flags}GT.playlist=['${id}','__end'];})();`;
+  const CSS=`*{box-sizing:border-box;}
+body{margin:0;background:radial-gradient(ellipse at center,#3a3226,#201b14);font-family:'Zen Old Mincho',serif;color:#e8dcc0;display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px;overflow-y:auto;min-height:100vh;}
+.loaderr{color:#e8c38a;font-family:sans-serif;padding:30px;line-height:1.9;font-size:14px;text-align:center;}
+.hud{display:flex;justify-content:space-between;width:100%;max-width:900px;font-size:12px;color:#cbb98f;}
+#hudStage{color:#e8dcc0;font-weight:700;}
+.canvas-wrap{position:relative;width:100%;max-width:900px;}
+canvas#game{display:block;width:100%;height:auto;aspect-ratio:900/480;border-radius:3px;box-shadow:0 0 0 1px rgba(0,0,0,.4);}
+.dialogue{position:absolute;left:0;right:0;bottom:0;padding:12px 14px 14px;background:linear-gradient(180deg,rgba(20,17,12,0),rgba(20,17,12,.82) 30%,rgba(20,17,12,.94));display:none;flex-direction:column;gap:8px;border-radius:0 0 3px 3px;}
+.dialogue.show{display:flex;}
+.speaker{font-family:'Cormorant Garamond',serif;font-size:14px;letter-spacing:.1em;color:#d9b877;font-weight:700;}
+.speaker.mari{color:#a9b0d6;}.speaker.wolf{color:#c9503f;}.speaker.hood{color:#d98a90;}.speaker.granny{color:#c8b78f;}.speaker.narr{color:#8a8266;font-style:italic;}.speaker.mother{color:#d9a77a;}
+.dline{font-size:15px;line-height:1.7;color:#efe6cf;min-height:1.7em;}
+.dhint{font-size:11px;color:#8a8266;text-align:right;}
+.choices{display:flex;flex-direction:column;gap:8px;}
+.choice{background:rgba(176,141,87,.12);border:1px solid rgba(176,141,87,.5);border-radius:8px;padding:10px 13px;font-size:14px;color:#efe6cf;cursor:pointer;text-align:left;font-family:'Zen Old Mincho',serif;}
+.choice:hover{background:rgba(176,141,87,.28);}
+.qte{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px;background:rgba(20,17,12,.35);}
+.qte.show{display:flex;}
+.qte .big{font-size:22px;color:#e8dcc0;}
+.qte .flipnow{background:rgba(201,80,63,.25);border:2px solid #c9503f;color:#fff;padding:14px 26px;border-radius:30px;font-size:18px;}
+.controls{display:flex;gap:14px;font-size:11px;color:#a99a76;flex-wrap:wrap;justify-content:center;max-width:900px;}
+.controls b{color:#e8dcc0;}
+.touch-ui{display:flex;justify-content:space-between;width:100%;max-width:900px;gap:10px;flex-wrap:wrap;}
+.touch-group{display:flex;gap:8px;}
+.b2{width:48px;height:48px;border-radius:50%;border:1px solid rgba(232,220,192,.35);background:rgba(232,220,192,.08);color:#e8dcc0;font-size:18px;display:flex;align-items:center;justify-content:center;user-select:none;-webkit-user-select:none;touch-action:none;}
+.b2:active{background:rgba(232,220,192,.25);}
+.b2.flip{width:auto;height:48px;padding:0 14px;border-radius:24px;background:rgba(176,141,87,.18);border-color:rgba(176,141,87,.6);font-size:12px;text-align:center;}
+.bookbtn{font-size:12px;color:#cbb98f;background:none;border:1px solid rgba(203,185,143,.4);border-radius:16px;padding:6px 14px;cursor:pointer;font-family:'Zen Old Mincho',serif;}
+.modal{position:fixed;inset:0;background:rgba(10,8,5,.86);display:none;align-items:center;justify-content:center;padding:20px;}
+.modal.show{display:flex;}
+.book-inner{background:linear-gradient(180deg,#efe4c8,#e2d3ab);color:#2b2e4a;max-width:520px;width:100%;border-radius:6px;padding:22px;max-height:80vh;overflow:auto;}
+.book-inner h2{font-family:'Cormorant Garamond',serif;margin:0 0 12px;}
+.page-entry{border-bottom:1px dashed rgba(58,50,38,.35);padding:9px 0;}
+.page-entry .title{font-weight:700;color:#3a2f2a;}
+.page-entry .body{color:#4a4e6d;white-space:pre-line;}
+.page-entry.empty .body{color:#a89a6f;font-style:italic;}
+.wormhole{letter-spacing:2px;color:#b0a074;}
+.book-inner .close{margin-top:14px;}
+.book-inner .close button{background:#3a2f2a;color:#e8dcc0;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-family:'Zen Old Mincho',serif;}`;
+  const SCAFFOLD=`<div class="hud"><span id="hudLeft">←</span><span id="hudStage">—</span><span id="hudRight">→</span></div>
+<div class="canvas-wrap">
+<canvas id="game" width="900" height="480"></canvas>
+<div class="qte" id="qte"><div class="big" id="qteBig">！</div><div class="flipnow" id="qteBtn">今だ！ 本を裏返せ</div></div>
+<div class="dialogue" id="dlg"><div class="speaker" id="dlgSpeaker">　</div><div class="dline" id="dlgLine">　</div><div class="choices" id="dlgChoices"></div><div class="dhint" id="dlgHint">▶ タップ／クリックで進む</div></div>
+</div>
+<div class="controls"><span><b>←→</b>移動</span><span><b>↑/W</b>ジャンプ</span><span><b>F/Space</b>重力反転</span><span>人物に近づいて<b>▲</b>・Enterで話す</span></div>
+<div class="touch-ui"><div class="touch-group"><div class="b2" id="btnLeft">◀</div><div class="b2" id="btnRight">▶</div></div><div class="b2 flip" id="btnFlip">裏返す</div><div class="touch-group"><div class="b2" id="btnJump">▲</div></div></div>
+<button class="bookbtn" id="openBook">📖 本を開く</button>
+<div class="modal" id="bookModal"><div class="book-inner"><h2>『Gravity Tale』</h2><div id="pageList"></div><div class="close"><button id="closeBook">閉じる</button></div></div></div>`;
+  return `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Zen+Old+Mincho:wght@500;700&display=swap" rel="stylesheet"><style>${CSS}</style></head><body>${SCAFFOLD}<script src="engine.js"><\/script><script>${init}<\/script></body></html>`;
+}
+function startPlay(){ playFrame.srcdoc=buildPlaytestSrcdoc(); playFrame.onload=()=>{ try{ playFrame.contentWindow.focus(); }catch(e){} }; }
+function openPlaytest(){
+  el('playHint').textContent = (state.meta.type==='play'&&state.npcs.length)
+    ? '※ play のため人物は出ません（会話を試すなら「種類」を story に）'
+    : '画面をクリック → ←→移動 / ↑ジャンプ / F 重力反転 / 人物に ▲・Enter';
+  playModal.classList.add('show'); startPlay();
+}
+function closePlaytest(){ playModal.classList.remove('show'); playFrame.srcdoc=''; }
+el('btnPlay').addEventListener('click',openPlaytest);
+el('playClose').addEventListener('click',closePlaytest);
+el('playRestart').addEventListener('click',startPlay);
+window.addEventListener('keydown',e=>{ if(e.key==='Escape'&&playModal.classList.contains('show')) closePlaytest(); });
+
+const exportModal=el('exportModal');
+el('btnExportJS').addEventListener('click',()=>{
+  el('exportText').value=buildJS(); el('stepId').textContent=state.meta.id; el('stepId2').textContent=state.meta.id;
+  const warn=el('exportWarn');
+  if(state.meta.type==='play'&&state.npcs.length){ warn.style.display='block';
+    warn.textContent='⚠ 人物／会話は play では書き出されません。会話を使うなら「種類」を story にしてください。'; }
+  else warn.style.display='none';
+  exportModal.classList.add('show');
+});
+el('btnCloseExport').addEventListener('click',()=>exportModal.classList.remove('show'));
+exportModal.addEventListener('click',e=>{ if(e.target===exportModal) exportModal.classList.remove('show'); });
+el('btnCopy').addEventListener('click',()=>{ const t=el('exportText'); t.select(); try{ document.execCommand('copy'); }catch(e){} navigator.clipboard&&navigator.clipboard.writeText(t.value); flash('コピーしました'); });
+el('btnDownloadJS').addEventListener('click',()=>download('XX_'+(state.meta.id||'stage')+'.js',buildJS()));
+
+/* トースト */
+let toastT; function flash(msg){ let e=el('_toast'); if(!e){ e=document.createElement('div'); e.id='_toast';
+  e.style.cssText='position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:rgba(43,36,24,.95);color:#e8dcc0;padding:10px 18px;border-radius:20px;font-size:13px;z-index:99;border:1px solid rgba(176,141,87,.5);transition:opacity .4s;'; document.body.appendChild(e); }
+  e.textContent=msg; e.style.opacity='1'; clearTimeout(toastT); toastT=setTimeout(()=>e.style.opacity='0',1400); }
+
+/* ==========================================================================
+   起動
+   ========================================================================== */
+function seed(){ state.objects=[
+    {type:'ledge',x:120,y:360,w:140,h:20},{type:'ledge',x:300,y:280,w:110,h:20},
+    {type:'ledge',x:560,y:330,w:150,h:20},{type:'box',x:360,y:248,w:32,h:32},
+    {type:'enemy',x:600,y:FLOOR-22,w:26,h:22,dir:-1} ]; }
+try{ const a=localStorage.getItem(AUTO); if(a) state=normalize(JSON.parse(a)); }catch(e){}
+if(!state.objects.length && !state.npcs.length) seed();
+syncMeta(); refreshSlots(); setActiveTool(); draw(); renderProps();
+
+})();
+</script>
+</body>
+</html>
