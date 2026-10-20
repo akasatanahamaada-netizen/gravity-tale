@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gravity Tale ── ステージエディタ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Zen+Old+Mincho:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --parchment:#e8dcc0; --ink:#2b2e4a; --gold:#b08d57; --moss:#57644a;
+    --rose:#8b5e63; --spine:#3a3226; --panel:#2b2418; --panel2:#352c1e;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;background:radial-gradient(ellipse at center,#3a3226,#1b160f);
+    font-family:'Zen Old Mincho',serif;color:#e8dcc0;}
+  .app{display:flex;flex-direction:column;height:100vh;}
+
+  header{display:flex;align-items:center;gap:14px;padding:8px 14px;background:linear-gradient(180deg,#4a3f2c,#2b2418);
+    box-shadow:0 2px 10px rgba(0,0,0,.5);flex-wrap:wrap;}
+  header h1{font-family:'Cormorant Garamond',serif;font-size:19px;letter-spacing:.12em;margin:0;}
+  header .sub{font-size:11px;color:#b7ab8a;letter-spacing:.04em;}
+  .spacer{flex:1;}
+
+  .bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+  button, select, input[type=text]{font-family:'Zen Old Mincho',serif;}
+  .btn{background:rgba(232,220,192,.08);border:1px solid rgba(232,220,192,.3);color:#e8dcc0;
+    border-radius:8px;padding:7px 11px;font-size:13px;cursor:pointer;letter-spacing:.03em;transition:background .12s;}
+  .btn:hover{background:rgba(232,220,192,.2);}
+  .btn.go{background:rgba(176,141,87,.25);border-color:rgba(176,141,87,.7);}
+  .btn.danger{background:rgba(201,80,63,.18);border-color:rgba(201,80,63,.6);}
+
+  main{flex:1;display:flex;min-height:0;}
+  /* 道具箱 */
+  .tools{width:120px;background:var(--panel);padding:10px 8px;display:flex;flex-direction:column;gap:6px;
+    border-right:1px solid rgba(0,0,0,.4);overflow:auto;}
+  .tools .lbl{font-size:10px;color:#8a8266;letter-spacing:.1em;margin:6px 2px 0;}
+  .tool{display:flex;align-items:center;gap:8px;background:rgba(232,220,192,.05);border:1px solid rgba(232,220,192,.18);
+    border-radius:8px;padding:8px;font-size:12px;cursor:pointer;color:#e8dcc0;text-align:left;}
+  .tool:hover{background:rgba(232,220,192,.14);}
+  .tool.active{background:rgba(176,141,87,.3);border-color:var(--gold);}
+  .swatch{width:16px;height:16px;border-radius:3px;flex:none;border:1px solid rgba(0,0,0,.3);}
+
+  /* 画布 */
+  .canvas-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px;min-width:0;overflow:auto;}
+  .canvas-wrap{position:relative;width:100%;max-width:900px;}
+  canvas{display:block;width:100%;height:auto;aspect-ratio:900/480;border-radius:4px;
+    box-shadow:0 20px 50px rgba(0,0,0,.5),0 0 0 1px rgba(0,0,0,.5);cursor:crosshair;touch-action:none;}
+  .hint{margin-top:8px;font-size:11px;color:#a99a76;text-align:center;letter-spacing:.03em;line-height:1.7;}
+  .hint b{color:#e8dcc0;}
+
+  /* 右パネル */
+  .props{width:252px;background:var(--panel);padding:12px;overflow:auto;border-left:1px solid rgba(0,0,0,.4);}
+  .props h3{font-family:'Cormorant Garamond',serif;font-size:14px;letter-spacing:.1em;margin:4px 0 8px;color:#d9b877;
+    border-bottom:1px solid rgba(176,141,87,.3);padding-bottom:5px;}
+  .row{display:flex;align-items:center;gap:6px;margin:6px 0;font-size:12px;}
+  .row label{width:74px;color:#b7ab8a;flex:none;}
+  .row input, .row select{flex:1;background:rgba(0,0,0,.25);border:1px solid rgba(232,220,192,.25);
+    color:#efe6cf;border-radius:6px;padding:6px 7px;font-size:12px;min-width:0;}
+  .grid2{display:flex;gap:6px;}
+  .grid2 .cell{flex:1;display:flex;align-items:center;gap:4px;}
+  .grid2 .cell span{color:#8a8266;font-size:11px;}
+  .grid2 .cell input{width:100%;background:rgba(0,0,0,.25);border:1px solid rgba(232,220,192,.25);
+    color:#efe6cf;border-radius:6px;padding:6px;font-size:12px;}
+  .empty-note{color:#8a8266;font-size:12px;font-style:italic;line-height:1.7;padding:6px 2px;}
+  .mini{font-size:10px;color:#8a8266;line-height:1.6;margin-top:4px;}
+  .pagechip{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;background:rgba(176,141,87,.2);
+    border:1px solid rgba(176,141,87,.5);}
+
+  /* 書き出しモーダル */
+  .modal{position:fixed;inset:0;background:rgba(10,8,5,.86);display:none;align-items:center;justify-content:center;z-index:50;padding:18px;}
+  .modal.show{display:flex;}
+  .sheet{background:linear-gradient(180deg,#efe4c8,#e2d3ab);color:#2b2e4a;max-width:720px;width:100%;
+    border-radius:8px;padding:20px 22px;box-shadow:0 20px 60px rgba(0,0,0,.6);max-height:84vh;display:flex;flex-direction:column;}
+  .sheet h2{font-family:'Cormorant Garamond',serif;letter-spacing:.1em;margin:0 0 6px;font-size:20px;}
+  .sheet p{font-size:13px;color:#4a4e6d;line-height:1.7;margin:2px 0 10px;}
+  .sheet textarea{flex:1;min-height:300px;background:#2b2418;color:#e8dcc0;border:none;border-radius:6px;
+    padding:14px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;line-height:1.6;white-space:pre;overflow:auto;}
+  .sheet .foot{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+  .sheet .foot .tip{flex:1;font-size:11px;color:#6a5e42;line-height:1.6;min-width:180px;}
+  .steps{font-size:12px;color:#4a4e6d;background:rgba(176,141,87,.14);border:1px solid rgba(176,141,87,.4);
+    border-radius:6px;padding:8px 12px;margin-bottom:10px;line-height:1.8;}
+  .steps code{background:rgba(43,36,24,.12);padding:1px 5px;border-radius:4px;}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>GRAVITY TALE · Stage Editor</h1>
+      <div class="sub">置いて・引っぱって大きさを変えて・書き出す ── 絵本ステージをマウスで作る</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="bar">
+      <select id="gridSel" class="btn" title="グリッド（マス目）">
+        <option value="0">自由配置</option>
+        <option value="5">5px グリッド</option>
+        <option value="10" selected>10px グリッド</option>
+        <option value="15">15px グリッド</option>
+        <option value="20">20px グリッド</option>
+      </select>
+      <button class="btn" id="btnUndo" title="元に戻す (Ctrl+Z)">↶ 戻す</button>
+      <button class="btn" id="btnDup" title="複製 (Ctrl+D)">⧉ 複製</button>
+      <button class="btn danger" id="btnClear">全消去</button>
+    </div>
+    <div class="bar">
+      <input type="text" id="slotName" class="btn" style="width:120px" placeholder="保存名">
+      <button class="btn" id="btnSaveSlot">💾 保存</button>
+      <select id="slotSel" class="btn"><option value="">― 読み込み ―</option></select>
+      <button class="btn danger" id="btnDelSlot" title="選択中の保存を削除">🗑</button>
+    </div>
+    <div class="bar">
+      <button class="btn" id="btnExportJSON">⇩ JSON</button>
+      <button class="btn" id="btnImportJSON">⇧ 読込</button>
+      <button class="btn go" id="btnExportJS">▶ ステージ書き出し</button>
+      <input type="file" id="fileInput" accept=".json,application/json" style="display:none">
+    </div>
+  </header>
+
+  <main>
+    <!-- 道具箱 -->
+    <div class="tools" id="tools">
+      <div class="lbl">どうぐ</div>
+      <button class="tool active" data-tool="select"><span class="swatch" style="background:#d9b877"></span>選択・移動</button>
+      <button class="tool" data-tool="ledge"><span class="swatch" style="background:#6b5b46"></span>床の足場</button>
+      <button class="tool" data-tool="ceilingLedge"><span class="swatch" style="background:#6b5b46;border-top:3px solid #e8dcc0"></span>天井の足場</button>
+      <button class="tool" data-tool="box"><span class="swatch" style="background:#8b5e63"></span>木の箱</button>
+      <button class="tool" data-tool="enemy"><span class="swatch" style="background:#3a2f2a"></span>敵</button>
+      <button class="tool" data-tool="goal"><span class="swatch" style="background:#b08d57"></span>ゴール旗</button>
+      <button class="tool" data-tool="erase"><span class="swatch" style="background:#c9503f"></span>けしゴム</button>
+      <div class="lbl">ヒント</div>
+      <div class="mini">
+        ・床をクリックで標準サイズ。ドラッグで好きな大きさ。<br>
+        ・縦長の床＝<b>壁</b>。<br>
+        ・中央の線が綴じ目。左右で<b>ページ</b>が自動で決まる。<br>
+        ・敵・箱は重力で落ちるので床の上に。
+      </div>
+    </div>
+
+    <!-- 画布 -->
+    <div class="canvas-col">
+      <div class="canvas-wrap">
+        <canvas id="cv" width="1800" height="960"></canvas>
+      </div>
+      <div class="hint">
+        <b>ドラッグ</b>で配置／移動・<b>四隅の□</b>で大きさ変更・<b>Delキー</b>で削除・<b>矢印キー</b>で微調整（Shiftで大きく）
+      </div>
+    </div>
+
+    <!-- 右パネル -->
+    <div class="props" id="props">
+      <h3>ステージ設定</h3>
+      <div class="row"><label>ID</label><input type="text" id="mId" value="my_stage"></div>
+      <div class="row"><label>見出し</label><input type="text" id="mLabel" value="新ステージ"></div>
+      <div class="row"><label>種類</label>
+        <select id="mType"><option value="play">play（右へ進む）</option><option value="story">story（会話）</option></select>
+      </div>
+      <div class="row"><label>クリア</label>
+        <select id="mClear"><option value="exit">exit（右端へ）</option><option value="goal">goal（旗に触れる）</option></select>
+      </div>
+      <div class="row"><label>開始ナレ</label><input type="text" id="mIntro" value="右へ進もう。"></div>
+
+      <h3 style="margin-top:16px">選んだオブジェクト</h3>
+      <div id="propBody"><div class="empty-note">キャンバスのオブジェクトを選ぶと、ここで数値を調整できます。</div></div>
+    </div>
+  </main>
+</div>
+
+<!-- 書き出しモーダル -->
+<div class="modal" id="exportModal">
+  <div class="sheet">
+    <h2>ステージを書き出す</h2>
+    <div class="steps">
+      ① 下を全部コピー → <code>stages/XX_<span id="stepId">id</span>.js</code> として保存<br>
+      ② <code>index.html</code> に <code>&lt;script src="stages/XX_….js"&gt;&lt;/script&gt;</code> を1行追加<br>
+      ③ <code>playlist.js</code> の <code>GT.playlist</code> に <code>'<span id="stepId2">id</span>'</code> を好きな位置に追加
+    </div>
+    <textarea id="exportText" readonly spellcheck="false"></textarea>
+    <div class="foot">
+      <button class="btn go" id="btnCopy">コピー</button>
+      <button class="btn" id="btnDownloadJS">.js でダウンロード</button>
+      <button class="btn" id="btnCloseExport">閉じる</button>
+      <div class="tip">※ このエディタが作るのは地形（足場・箱・敵・ゴール）です。story の会話や NPC は、書き出した後に <code>npcs:[…]</code> を書き足してください。</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ==========================================================================
+   Gravity Tale ステージエディタ
+   ・ゲーム本体(engine.js)と同じ座標系 900×480・綴じ目 x=450
+   ・platforms / boxes / enemies / goal を視覚的に配置 → JS/JSON で書き出し
+   ========================================================================== */
+(function(){
+"use strict";
+const W=900, H=480, SPINE=450, EDGE=16;
+const DPR=2;
+const cv=document.getElementById('cv');
+const ctx=cv.getContext('2d');
+ctx.scale(DPR,DPR);
+
+/* ---- データ ---- */
+let state = {
+  meta:{ id:'my_stage', label:'新ステージ', type:'play', clear:'exit', intro:'右へ進もう。' },
+  objects:[]   // {type, x,y,w,h, dir?}
+};
+let tool='select';
+let selected=null;
+let grid=10;
+
+/* プレイヤー開始位置（参考表示・編集不可）engine.js と同じ */
+const PLAYER_START={x:60, y:H-EDGE-34, w:26, h:34};
+
+/* 標準サイズ */
+const DEFAULTS={
+  ledge:{w:120,h:20}, ceilingLedge:{w:120,h:20},
+  box:{w:32,h:32}, enemy:{w:26,h:22}, goal:{w:26,h:34}
+};
+const LABELS={ledge:'床の足場', ceilingLedge:'天井の足場', box:'木の箱', enemy:'敵', goal:'ゴール旗'};
+
+/* ---- undo ---- */
+let undoStack=[];
+function snapshot(){ undoStack.push(JSON.stringify(state)); if(undoStack.length>60) undoStack.shift(); }
+function undo(){ if(!undoStack.length) return; state=JSON.parse(undoStack.pop()); selected=null; syncMeta(); autosave(); draw(); renderProps(); }
+
+/* ---- グリッド・補助 ---- */
+function snap(v){ return grid>0 ? Math.round(v/grid)*grid : Math.round(v); }
+function pageOf(o){ return (o.x+o.w/2)<SPINE ? 'left':'right'; }
+function clampWorld(o){
+  o.w=Math.max(8,o.w); o.h=Math.max(8,o.h);
+  o.x=Math.max(-20,Math.min(W-8,o.x)); o.y=Math.max(-20,Math.min(H-8,o.y));
+}
+
+/* ==========================================================================
+   描画
+   ========================================================================== */
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  // 紙
+  const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#efe4c8'); g.addColorStop(1,'#e2d3ab');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  // ページの淡い色分け
+  ctx.fillStyle='rgba(87,100,74,.05)'; ctx.fillRect(0,0,SPINE,H);
+  ctx.fillStyle='rgba(139,94,99,.05)'; ctx.fillRect(SPINE,0,SPINE,H);
+  // グリッド
+  if(grid>0){
+    ctx.strokeStyle='rgba(58,50,38,.08)'; ctx.lineWidth=1;
+    for(let x=grid;x<W;x+=grid){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+    for(let y=grid;y<H;y+=grid){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  }
+  // 外枠（EDGE 見えない壁）
+  ctx.strokeStyle='rgba(58,50,38,.5)'; ctx.lineWidth=2; ctx.setLineDash([4,4]);
+  ctx.strokeRect(EDGE,EDGE,W-EDGE*2,H-EDGE*2); ctx.setLineDash([]);
+  // 床ライン（物が乗る高さ）
+  ctx.strokeStyle='rgba(87,100,74,.35)'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(0,H-EDGE); ctx.lineTo(W,H-EDGE); ctx.stroke();
+  // 綴じ目
+  const sg=ctx.createLinearGradient(SPINE-14,0,SPINE+14,0);
+  sg.addColorStop(0,'rgba(58,50,38,0)'); sg.addColorStop(.5,'rgba(58,50,38,.4)'); sg.addColorStop(1,'rgba(58,50,38,0)');
+  ctx.fillStyle=sg; ctx.fillRect(SPINE-14,0,28,H);
+  // ページ見出し
+  ctx.fillStyle='rgba(74,70,60,.5)'; ctx.font="700 12px 'Zen Old Mincho',serif";
+  ctx.textAlign='center'; ctx.fillText('左ページ', SPINE/2, 26); ctx.fillText('右ページ', SPINE+SPINE/2, 26);
+
+  // プレイヤー開始位置（ゴースト）
+  ctx.save(); ctx.globalAlpha=.55;
+  ctx.fillStyle='#2b2e4a'; roundRect(PLAYER_START.x,PLAYER_START.y,PLAYER_START.w,PLAYER_START.h,8); ctx.fill();
+  ctx.globalAlpha=1; ctx.fillStyle='rgba(43,46,74,.7)'; ctx.font="600 10px 'Zen Old Mincho',serif";
+  ctx.textAlign='center'; ctx.fillText('スタート', PLAYER_START.x+PLAYER_START.w/2, PLAYER_START.y-5);
+  ctx.restore();
+
+  // オブジェクト
+  for(const o of state.objects) drawObj(o);
+  // 選択ハンドル
+  if(selected) drawHandles(selected);
+}
+
+function drawObj(o){
+  ctx.save();
+  if(o.type==='ledge' || o.type==='ceilingLedge'){
+    roundRect(o.x,o.y,o.w,o.h,Math.min(9,o.h/2)); ctx.fillStyle='#6b5b46'; ctx.fill();
+    ctx.fillStyle='rgba(232,220,192,.3)';
+    if(o.type==='ledge') ctx.fillRect(o.x+4,o.y+2,o.w-8,3);
+    else ctx.fillRect(o.x+4,o.y+o.h-5,o.w-8,3);
+  } else if(o.type==='box'){
+    roundRect(o.x,o.y,o.w,o.h,6); ctx.fillStyle='#8b5e63'; ctx.fill();
+    ctx.strokeStyle='rgba(232,220,192,.5)'; ctx.lineWidth=2; ctx.beginPath();
+    ctx.moveTo(o.x+4,o.y+4); ctx.lineTo(o.x+o.w-4,o.y+o.h-4);
+    ctx.moveTo(o.x+o.w-4,o.y+4); ctx.lineTo(o.x+4,o.y+o.h-4); ctx.stroke();
+  } else if(o.type==='enemy'){
+    roundRect(o.x,o.y,o.w,o.h,6); ctx.fillStyle='#3a2f2a'; ctx.fill();
+    // 耳
+    ctx.beginPath(); const ex=(o.dir>=0?o.x+o.w-6:o.x+2);
+    ctx.moveTo(ex,o.y); ctx.lineTo(ex+3,o.y-7); ctx.lineTo(ex+6,o.y); ctx.closePath(); ctx.fill();
+    // 目＋向き矢印
+    ctx.fillStyle='#c9503f'; ctx.beginPath();
+    ctx.arc(o.dir>=0?o.x+o.w-8:o.x+8, o.y+o.h*0.4, 2.4,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='rgba(201,80,63,.8)'; ctx.lineWidth=1.5;
+    const my=o.y+o.h+7, cx=o.x+o.w/2;
+    ctx.beginPath(); ctx.moveTo(cx-8,my); ctx.lineTo(cx+8,my);
+    const tip=o.dir>=0?cx+8:cx-8, s=o.dir>=0?-1:1;
+    ctx.moveTo(tip,my); ctx.lineTo(tip+5*s,my-3); ctx.moveTo(tip,my); ctx.lineTo(tip+5*s,my+3); ctx.stroke();
+  } else if(o.type==='goal'){
+    ctx.fillStyle='#b08d57'; const hw=o.w/2;
+    ctx.beginPath();
+    ctx.moveTo(o.x,o.y); ctx.lineTo(o.x+o.w,o.y); ctx.lineTo(o.x+o.w,o.y+o.h);
+    ctx.lineTo(o.x+hw,o.y+o.h-6); ctx.lineTo(o.x,o.y+o.h); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='rgba(58,50,38,.6)'; ctx.lineWidth=1.5; ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function handleRects(o){
+  const s=9, hx=o.x, hy=o.y, hw=o.w, hh=o.h;
+  return {
+    nw:[hx-s/2,hy-s/2,s,s], n:[hx+hw/2-s/2,hy-s/2,s,s], ne:[hx+hw-s/2,hy-s/2,s,s],
+    e:[hx+hw-s/2,hy+hh/2-s/2,s,s], se:[hx+hw-s/2,hy+hh-s/2,s,s],
+    s:[hx+hw/2-s/2,hy+hh-s/2,s,s], sw:[hx-s/2,hy+hh-s/2,s,s], w:[hx-s/2,hy+hh/2-s/2,s,s]
+  };
+}
+function drawHandles(o){
+  ctx.save();
+  ctx.strokeStyle='#d9b877'; ctx.lineWidth=1.5; ctx.setLineDash([5,3]);
+  ctx.strokeRect(o.x-1,o.y-1,o.w+2,o.h+2); ctx.setLineDash([]);
+  const hs=handleRects(o);
+  ctx.fillStyle='#efe4c8'; ctx.strokeStyle='#8a6a2e'; ctx.lineWidth=1;
+  for(const k in hs){ const r=hs[k]; ctx.fillRect(r[0],r[1],r[2],r[3]); ctx.strokeRect(r[0],r[1],r[2],r[3]); }
+  // サイズ表示
+  ctx.fillStyle='rgba(43,46,74,.85)'; ctx.font="600 11px 'Zen Old Mincho',serif"; ctx.textAlign='left';
+  ctx.fillText(`${Math.round(o.w)}×${Math.round(o.h)}`, o.x, o.y-6);
+  ctx.restore();
+}
+function roundRect(x,y,w,h,r){ r=Math.min(r,w/2,h/2); ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+/* ==========================================================================
+   入力（配置・移動・リサイズ）
+   ========================================================================== */
+function toWorld(e){ const r=cv.getBoundingClientRect();
+  return { x:(e.clientX-r.left)/r.width*W, y:(e.clientY-r.top)/r.height*H }; }
+function hitObject(p){ for(let i=state.objects.length-1;i>=0;i--){ const o=state.objects[i];
+  if(p.x>=o.x&&p.x<=o.x+o.w&&p.y>=o.y&&p.y<=o.y+o.h) return o; } return null; }
+function hitHandle(o,p){ if(!o) return null; const hs=handleRects(o);
+  for(const k in hs){ const r=hs[k]; if(p.x>=r[0]&&p.x<=r[0]+r[2]&&p.y>=r[1]&&p.y<=r[1]+r[3]) return k; } return null; }
+
+let drag=null;   // {mode:'move'|'resize'|'create', handle, start, o0}
+let dirtied=false;
+
+cv.addEventListener('pointerdown',e=>{
+  e.preventDefault(); cv.setPointerCapture(e.pointerId);
+  const p=toWorld(e); dirtied=false;
+
+  if(tool==='erase'){ const o=hitObject(p); if(o){ snapshot(); state.objects.splice(state.objects.indexOf(o),1);
+    if(selected===o) selected=null; autosave(); draw(); renderProps(); } return; }
+
+  if(tool==='select'){
+    // まず選択中オブジェクトのハンドル
+    const hk=hitHandle(selected,p);
+    if(hk){ snapshot(); drag={mode:'resize',handle:hk,o0:{...selected},start:p}; return; }
+    const o=hitObject(p);
+    selected=o;
+    if(o){ snapshot(); drag={mode:'move',o0:{...o},start:p}; }
+    draw(); renderProps(); return;
+  }
+
+  // 作成ツール
+  snapshot();
+  const o={type:tool, x:snap(p.x), y:snap(p.y), w:0, h:0};
+  if(tool==='enemy') o.dir=-1;
+  state.objects.push(o); selected=o;
+  drag={mode:'create',handle:'se',o0:{...o},start:{x:o.x,y:o.y}};
+  draw(); renderProps();
+});
+
+cv.addEventListener('pointermove',e=>{
+  const p=toWorld(e);
+  // カーソル
+  if(!drag && tool==='select'){ cv.style.cursor = hitHandle(selected,p)?'nwse-resize':(hitObject(p)?'move':'default'); }
+  if(!drag) return;
+  dirtied=true;
+  const o=selected; if(!o) return;
+
+  if(drag.mode==='move'){
+    o.x=snap(drag.o0.x+(p.x-drag.start.x));
+    o.y=snap(drag.o0.y+(p.y-drag.start.y));
+  } else { // resize / create
+    const b=drag.o0, h=drag.handle;
+    let x1=b.x, y1=b.y, x2=b.x+b.w, y2=b.y+b.h;
+    if(drag.mode==='create'){ x2=snap(p.x); y2=snap(p.y); }
+    else{
+      if(h.includes('e')) x2=snap(b.x+b.w+(p.x-drag.start.x));
+      if(h.includes('w')) x1=snap(b.x+(p.x-drag.start.x));
+      if(h.includes('s')) y2=snap(b.y+b.h+(p.y-drag.start.y));
+      if(h.includes('n')) y1=snap(b.y+(p.y-drag.start.y));
+    }
+    o.x=Math.min(x1,x2); o.y=Math.min(y1,y2);
+    o.w=Math.abs(x2-x1); o.h=Math.abs(y2-y1);
+  }
+  draw(); renderProps();
+});
+
+function endDrag(){
+  if(!drag) return;
+  const o=selected;
+  if(o){
+    if(drag.mode==='create' && o.w<4 && o.h<4){ const d=DEFAULTS[o.type]; o.w=d.w; o.h=d.h; }
+    clampWorld(o);
+    if(drag.mode==='create'){ tool='select'; setActiveTool(); }
+  }
+  if(!dirtied && undoStack.length){ undoStack.pop(); }  // 動かしてないなら snapshot 取り消し
+  drag=null; autosave(); draw(); renderProps();
+}
+cv.addEventListener('pointerup',endDrag);
+cv.addEventListener('pointercancel',endDrag);
+
+/* キーボード */
+window.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT') return;
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){ e.preventDefault(); undo(); return; }
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='d'){ e.preventDefault(); duplicate(); return; }
+  if(!selected) return;
+  if(e.key==='Delete'||e.key==='Backspace'){ e.preventDefault(); snapshot();
+    state.objects.splice(state.objects.indexOf(selected),1); selected=null; autosave(); draw(); renderProps(); return; }
+  const step=e.shiftKey?(grid>0?grid:10):(grid>0?grid:1);
+  let m=false;
+  if(e.key==='ArrowLeft'){ selected.x-=step; m=true; }
+  if(e.key==='ArrowRight'){ selected.x+=step; m=true; }
+  if(e.key==='ArrowUp'){ selected.y-=step; m=true; }
+  if(e.key==='ArrowDown'){ selected.y+=step; m=true; }
+  if(m){ e.preventDefault(); clampWorld(selected); autosave(); draw(); renderProps(); }
+});
+
+function duplicate(){ if(!selected) return; snapshot();
+  const n={...selected, x:selected.x+20, y:selected.y+20}; clampWorld(n);
+  state.objects.push(n); selected=n; autosave(); draw(); renderProps(); }
+
+/* ==========================================================================
+   道具・プロパティUI
+   ========================================================================== */
+function setActiveTool(){ document.querySelectorAll('.tool').forEach(b=>b.classList.toggle('active',b.dataset.tool===tool)); }
+document.querySelectorAll('.tool').forEach(b=>b.addEventListener('click',()=>{ tool=b.dataset.tool; setActiveTool();
+  if(tool!=='select'){ selected=null; renderProps(); } cv.style.cursor = tool==='select'?'default':'crosshair'; }));
+
+function renderProps(){
+  const body=document.getElementById('propBody');
+  if(!selected){ body.innerHTML='<div class="empty-note">キャンバスのオブジェクトを選ぶと、ここで数値を調整できます。</div>'; return; }
+  const o=selected;
+  let h=`<div class="row"><label>種類</label><span class="pagechip">${LABELS[o.type]}</span>
+         <span style="margin-left:auto" class="pagechip">${pageOf(o)==='left'?'左ページ':'右ページ'}</span></div>`;
+  h+=`<div class="grid2">
+        <div class="cell"><span>X</span><input type="number" id="pX" value="${Math.round(o.x)}"></div>
+        <div class="cell"><span>Y</span><input type="number" id="pY" value="${Math.round(o.y)}"></div>
+      </div>
+      <div class="grid2" style="margin-top:6px">
+        <div class="cell"><span>幅</span><input type="number" id="pW" value="${Math.round(o.w)}"></div>
+        <div class="cell"><span>高</span><input type="number" id="pH" value="${Math.round(o.h)}"></div>
+      </div>`;
+  if(o.type==='enemy'){
+    h+=`<div class="row" style="margin-top:8px"><label>歩く向き</label>
+         <select id="pDir"><option value="-1" ${o.dir<0?'selected':''}>← 左から</option>
+         <option value="1" ${o.dir>=0?'selected':''}>右へ →</option></select></div>`;
+  }
+  h+=`<div class="row" style="margin-top:10px"><button class="btn danger" id="pDel" style="flex:1">このオブジェクトを削除</button></div>`;
+  if(o.type==='ledge') h+=`<div class="mini">縦長にすると「壁」になります（例 w:30, h:170）。</div>`;
+  if(o.type==='enemy'||o.type==='box') h+=`<div class="mini">重力で落ちます。床の足場の上に置くと安定します。</div>`;
+  body.innerHTML=h;
+
+  const bind=(id,f)=>{ const el=document.getElementById(id); if(el) el.addEventListener('input',()=>{
+    snapshot(); f(parseFloat(el.value)||0); clampWorld(o); if(undoStack.length&&false){} autosave(); draw(); }); };
+  bind('pX',v=>o.x=v); bind('pY',v=>o.y=v); bind('pW',v=>o.w=v); bind('pH',v=>o.h=v);
+  const dir=document.getElementById('pDir'); if(dir) dir.addEventListener('change',()=>{ snapshot(); o.dir=parseInt(dir.value); autosave(); draw(); });
+  const del=document.getElementById('pDel'); if(del) del.addEventListener('click',()=>{ snapshot();
+    state.objects.splice(state.objects.indexOf(o),1); selected=null; autosave(); draw(); renderProps(); });
+}
+
+/* メタ情報 */
+function syncMeta(){ document.getElementById('mId').value=state.meta.id;
+  document.getElementById('mLabel').value=state.meta.label;
+  document.getElementById('mType').value=state.meta.type;
+  document.getElementById('mClear').value=state.meta.clear;
+  document.getElementById('mIntro').value=state.meta.intro; }
+['mId','mLabel','mType','mClear','mIntro'].forEach(id=>{
+  document.getElementById(id).addEventListener('input',()=>{
+    state.meta={ id:v('mId').trim()||'my_stage', label:v('mLabel'), type:v('mType'), clear:v('mClear'), intro:v('mIntro') };
+    autosave();
+  });
+});
+function v(id){ return document.getElementById(id).value; }
+
+/* グリッド */
+document.getElementById('gridSel').addEventListener('change',e=>{ grid=parseInt(e.target.value); draw(); });
+
+/* ==========================================================================
+   保存・読み込み（localStorage / JSON）
+   ========================================================================== */
+const AUTO='gt_editor_autosave', SLOTS='gt_editor_slots';
+function autosave(){ try{ localStorage.setItem(AUTO,JSON.stringify(state)); }catch(e){} }
+function loadAuto(){ try{ const s=localStorage.getItem(AUTO); if(s){ state=JSON.parse(s); } }catch(e){} }
+function getSlots(){ try{ return JSON.parse(localStorage.getItem(SLOTS)||'{}'); }catch(e){ return {}; } }
+function refreshSlots(){ const sel=document.getElementById('slotSel'); const slots=getSlots();
+  sel.innerHTML='<option value="">― 読み込み ―</option>'+Object.keys(slots).map(k=>`<option>${esc(k)}</option>`).join(''); }
+function esc(s){ return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+document.getElementById('btnSaveSlot').addEventListener('click',()=>{
+  let name=document.getElementById('slotName').value.trim()||state.meta.id||'stage';
+  const slots=getSlots(); slots[name]=state; localStorage.setItem(SLOTS,JSON.stringify(slots));
+  refreshSlots(); document.getElementById('slotSel').value=name; flash('「'+name+'」を保存しました');
+});
+document.getElementById('slotSel').addEventListener('change',e=>{ const name=e.target.value; if(!name) return;
+  const slots=getSlots(); if(slots[name]){ snapshot(); state=JSON.parse(JSON.stringify(slots[name])); selected=null;
+    document.getElementById('slotName').value=name; syncMeta(); autosave(); draw(); renderProps(); } });
+document.getElementById('btnDelSlot').addEventListener('click',()=>{ const sel=document.getElementById('slotSel'); const name=sel.value;
+  if(!name) return; if(!confirm('「'+name+'」を削除しますか？')) return;
+  const slots=getSlots(); delete slots[name]; localStorage.setItem(SLOTS,JSON.stringify(slots)); refreshSlots(); });
+
+document.getElementById('btnClear').addEventListener('click',()=>{ if(!confirm('全オブジェクトを消しますか？')) return;
+  snapshot(); state.objects=[]; selected=null; autosave(); draw(); renderProps(); });
+document.getElementById('btnUndo').addEventListener('click',undo);
+document.getElementById('btnDup').addEventListener('click',duplicate);
+
+/* JSON 書き出し／取り込み */
+document.getElementById('btnExportJSON').addEventListener('click',()=>{
+  download((state.meta.id||'stage')+'.json', JSON.stringify(state,null,2)); });
+document.getElementById('btnImportJSON').addEventListener('click',()=>document.getElementById('fileInput').click());
+document.getElementById('fileInput').addEventListener('change',e=>{ const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader(); r.onload=()=>{ try{ const d=JSON.parse(r.result);
+    if(d&&d.objects){ snapshot(); state=d; if(!state.meta) state.meta={id:'my_stage',label:'',type:'play',clear:'exit',intro:''};
+      selected=null; syncMeta(); autosave(); draw(); renderProps(); flash('読み込みました'); }
+    else alert('このファイルはエディタの保存形式ではありません'); }catch(err){ alert('読み込めませんでした'); } };
+  r.readAsText(f); e.target.value=''; });
+
+function download(name,text){ const b=new Blob([text],{type:'text/plain'}); const a=document.createElement('a');
+  a.href=URL.createObjectURL(b); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); }
+
+/* ==========================================================================
+   ステージ JS 書き出し（ゲームにそのまま貼れる形）
+   ========================================================================== */
+function buildJS(){
+  const m=state.meta; const id=(m.id||'my_stage').trim();
+  const P=[],B=[],E=[]; let goal=null;
+  for(const o of state.objects){
+    const x=Math.round(o.x),y=Math.round(o.y),w=Math.round(o.w),h=Math.round(o.h);
+    const page=(x+w/2)<SPINE?'left':'right';
+    if(o.type==='ledge')        P.push(`    {page:'${page}', x:${x}, y:${y}, w:${w}, h:${h}, kind:'ledge'},`);
+    else if(o.type==='ceilingLedge') P.push(`    {page:'${page}', x:${x}, y:${y}, w:${w}, h:${h}, kind:'ceilingLedge'},`);
+    else if(o.type==='box')     B.push(`    {x:${x}, y:${y}, w:${w}, h:${h}},`);
+    else if(o.type==='enemy')   E.push(`    {page:'${page}', x:${x}, y:${y}, w:${w}, h:${h}, dir:${o.dir||-1}},`);
+    else if(o.type==='goal')    goal={page,x,y,w,h};
+  }
+  let def=`/* stages/XX_${id}.js  ── ステージエディタで作成 */\n`;
+  def+=`GT.defineStage('${id}', {\n`;
+  def+=`  platforms:[\n${P.join('\n')}${P.length?'\n':''}  ],\n`;
+  def+=`  boxes:[\n${B.join('\n')}${B.length?'\n':''}  ],\n`;
+  def+=`  enemies:[\n${E.join('\n')}${E.length?'\n':''}  ],\n`;
+  if(goal) def+=`  goal:{page:'${goal.page}', x:${goal.x}, y:${goal.y}, w:${goal.w}, h:${goal.h}},\n`;
+  def+=`});\n\n`;
+
+  const clear = goal ? 'goal' : (m.clear||'exit');
+  if(m.type==='story'){
+    def+=`GT.registerScene({\n  id:'${id}', type:'story', stage:'${id}',\n  label:'${esq(m.label)}',\n`;
+    if(m.intro) def+=`  intro:{s:'', c:'narr', t:'${esq(m.intro)}'},\n`;
+    def+=`  // ↓ 話しかけるキャラ。who:'mari'|'hood'|'wolf'、lines があると話せる\n`;
+    def+=`  npcs:[\n    // {who:'hood', name:'赤ずきん', page:'right', x:560, lines:[\n`;
+    def+=`    //   {s:'赤ずきん', c:'hood', t:'…こんにちは。'},\n    // ]},\n  ],\n});\n`;
+  } else {
+    def+=`GT.registerScene({\n  id:'${id}', type:'play', stage:'${id}', clear:'${clear}',\n  label:'${esq(m.label)}',\n`;
+    if(m.intro) def+=`  intro:{s:'', c:'narr', t:'${esq(m.intro)}'},\n`;
+    def+=`});\n`;
+  }
+  return def;
+}
+function esq(s){ return (s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+
+const modal=document.getElementById('exportModal');
+document.getElementById('btnExportJS').addEventListener('click',()=>{
+  document.getElementById('exportText').value=buildJS();
+  document.getElementById('stepId').textContent=state.meta.id;
+  document.getElementById('stepId2').textContent=state.meta.id;
+  modal.classList.add('show');
+});
+document.getElementById('btnCloseExport').addEventListener('click',()=>modal.classList.remove('show'));
+modal.addEventListener('click',e=>{ if(e.target===modal) modal.classList.remove('show'); });
+document.getElementById('btnCopy').addEventListener('click',()=>{ const t=document.getElementById('exportText');
+  t.select(); try{ document.execCommand('copy'); }catch(e){} navigator.clipboard&&navigator.clipboard.writeText(t.value);
+  flash('コピーしました'); });
+document.getElementById('btnDownloadJS').addEventListener('click',()=>{
+  const id=(state.meta.id||'stage'); download('XX_'+id+'.js', buildJS()); });
+
+/* トースト */
+let toastT;
+function flash(msg){ let el=document.getElementById('_toast'); if(!el){ el=document.createElement('div'); el.id='_toast';
+  el.style.cssText='position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:rgba(43,36,24,.95);'
+   +'color:#e8dcc0;padding:10px 18px;border-radius:20px;font-size:13px;z-index:99;border:1px solid rgba(176,141,87,.5);';
+  document.body.appendChild(el); } el.textContent=msg; el.style.opacity='1';
+  clearTimeout(toastT); toastT=setTimeout(()=>el.style.opacity='0',1400); el.style.transition='opacity .4s'; }
+
+/* ==========================================================================
+   起動 ── サンプルを1つ置いて、使い方がすぐ分かるように
+   ========================================================================== */
+function seed(){
+  state.objects=[
+    {type:'ledge',x:120,y:360,w:140,h:20},
+    {type:'ledge',x:300,y:280,w:110,h:20},
+    {type:'ledge',x:560,y:330,w:150,h:20},
+    {type:'box',x:360,y:248,w:32,h:32},
+    {type:'enemy',x:600,y:308,w:26,h:22,dir:-1},
+  ];
+}
+loadAuto();
+if(!state.objects || !state.objects.length) seed();
+syncMeta(); refreshSlots(); setActiveTool(); draw(); renderProps();
+
+})();
+</script>
+</body>
+</html>
